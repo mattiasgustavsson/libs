@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-strpool.h - v1.2 - Highly efficient string pool for C/C++.
+strpool.h - v1.3 - Highly efficient string pool for C/C++.
 
 Do this:
 	#define STRPOOL_IMPLEMENTATION
@@ -283,8 +283,8 @@ void strpool_init( strpool_t* pool, strpool_config_t const* config )
 
 	STRPOOL_ASSERT( config->counter_bits + config->index_bits <= 64 );
 	pool->counter_shift = config->index_bits;
-	pool->counter_mask = ( 2ULL << (STRPOOL_U64) config->counter_bits ) - 1;
-	pool->index_mask = ( 2ULL << (STRPOOL_U64) config->index_bits ) - 1;
+	pool->counter_mask = ( 1ULL << (STRPOOL_U64) config->counter_bits ) - 1;
+	pool->index_mask = ( 1ULL << (STRPOOL_U64) config->index_bits ) - 1;
 
 	pool->initial_entry_capacity = strpool_pow2ceil( config->entry_capacity > 1 ? config->entry_capacity : 2 );
 	pool->initial_block_capacity = strpool_pow2ceil( config->block_capacity > 1 ? config->block_capacity : 2 );
@@ -957,6 +957,7 @@ char* strpool_collate( strpool_t const* pool, int* count )
 
 /*
 revision history:
+	1.3		fixed typo in mask bit shift
 	1.2		made it possible to override standard library functions
 	1.1		added is_valid function to query a handles validity
 	1.0		first released version	
