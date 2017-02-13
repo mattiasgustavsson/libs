@@ -156,7 +156,7 @@ your program, and you want thread.h to use compatible types. In this case, you w
 following code:
 
     #define THREAD_U64 uint64_t
-    #include "threas.h"
+    #include "thread.h"
 
 Note that when customizing this data type, you need to use the same definition in every place where you include 
 thread.h, as it affect the declarations as well as the definitions.
