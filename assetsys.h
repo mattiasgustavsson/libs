@@ -5345,7 +5345,6 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
     #define ASSETSYS_ASSERT( x ) assert( x )
 #endif
 
-// TODO: custom allocators. use miniz custom alloc overrides
 #ifndef ASSETSYS_MALLOC
     #define _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_SECURE_NO_WARNINGS
