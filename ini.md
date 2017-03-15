@@ -4,8 +4,8 @@ ini.h
 Library: [ini.h](ini.h)
 
 
-Example
-=======
+Examples
+========
 
 Loading an ini file and retrieving values
 -----------------------------------------
