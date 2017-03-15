@@ -6,3 +6,4 @@ Single-file public domain libraries for C/C++ (dual licensed under MIT).
 * [ini.h](ini.md) - Simple ini-file reader for C/C++.
 * [rnd.h](rnd.md) - Pseudo-random number generators for C/C++.
 * [strpool.h](strpool.md) - Highly efficient string pool for C/C++.
+* [thread.h](thread.md) - Cross platform threading functions for C/C++.
