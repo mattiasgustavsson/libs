@@ -187,11 +187,11 @@ could not be found. If `path` indicates a file, and it is not a valid archive fi
 `ASSETSYS_ERROR_FAILED_TO_READ_ZIP`.
 
 If multiple mounts contains the same file and it is accessible through the same full path (whether because of the 
-`mount_as` prefix or not), the last mounted data source will be used when loadassetsys_dismount
+`mount_as` prefix or not), the last mounted data source will be used when loading that file.
+
+
+assetsys_dismount
 -----------------
-
-ing that file.
-
 
     assetsys_error_t assetsys_dismount( assetsys_t* sys, char const* path, char const* mounted_as )
 
