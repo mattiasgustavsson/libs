@@ -9,6 +9,7 @@ Example
 
 Here's a basic sample program which starts a windowed app and plots random pixels.
 
+```cpp
 	#define  APP_IMPLEMENTATION
 	#define  APP_WINDOWS
 	#include "app.h"
@@ -45,7 +46,7 @@ Here's a basic sample program which starts a windowed app and plots random pixel
 
 	// pass-through so the program will build with either /SUBSYSTEM:WINDOWS or /SUBSYSTEN:CONSOLE
 	extern "C" int __stdcall WinMain( struct HINSTANCE__*, struct HINSTANCE__*, char*, int ) { return main( __argc, __argv ); }
-
+```
 
 
 API Documentation
