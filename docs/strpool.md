@@ -1,7 +1,7 @@
 strpool.h
 =========
 
-Library: [strpool.h](strpool.h)
+Library: [strpool.h](../strpool.h)
 
 
 Example

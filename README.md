@@ -1,9 +1,9 @@
 # libs
 Single-file public domain libraries for C/C++ (dual licensed under MIT).
 
-* [app.h](app.md) - Small cross-platform base framework for graphical apps, for C/C++.
-* [assetsys.h](assetsys.md) - File system abstraction to read from zip-files, for C/C++.
-* [ini.h](ini.md) - Simple ini-file reader for C/C++.
-* [rnd.h](rnd.md) - Pseudo-random number generators for C/C++.
-* [strpool.h](strpool.md) - Highly efficient string pool for C/C++.
-* [thread.h](thread.md) - Cross platform threading functions for C/C++.
+* [app.h](docs/app.md) - Small cross-platform base framework for graphical apps, for C/C++.
+* [assetsys.h](docs/assetsys.md) - File system abstraction to read from zip-files, for C/C++.
+* [ini.h](docs/ini.md) - Simple ini-file reader for C/C++.
+* [rnd.h](docs/rnd.md) - Pseudo-random number generators for C/C++.
+* [strpool.h](docs/strpool.md) - Highly efficient string pool for C/C++.
+* [thread.h](docs/thread.md) - Cross platform threading functions for C/C++.

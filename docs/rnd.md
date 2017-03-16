@@ -1,7 +1,7 @@
 rnd.h
 =====
 
-Library: [rnd.h](rnd.h)
+Library: [rnd.h](../rnd.h)
 
 
 Example

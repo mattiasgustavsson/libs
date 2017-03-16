@@ -1,7 +1,7 @@
 thread.h
 ========
 
-Library: [thread.h](thread.h)
+Library: [thread.h](../thread.h)
 
 
 Example

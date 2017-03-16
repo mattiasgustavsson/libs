@@ -1,7 +1,7 @@
 ini.h
 =====
 
-Library: [ini.h](ini.h)
+Library: [ini.h](../ini.h)
 
 
 Examples

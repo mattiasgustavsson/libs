@@ -1,7 +1,7 @@
 assetsys.h
 ==========
 
-Library: [assetsys.h](assetsys.h)
+Library: [assetsys.h](../assetsys.h)
 
 
 Example
