@@ -384,9 +384,13 @@ the length is determined automatically, but in this case `value` has to be zero-
 */
 
 #ifdef INI_IMPLEMENTATION
-
+#undef INI_IMPLEMENTATION
 
 #define INITIAL_CAPACITY ( 256 )
+
+#define _CRT_NONSTDC_NO_DEPRECATE 
+#define _CRT_SECURE_NO_WARNINGS
+#include <stddef.h>
 
 #ifndef INI_MALLOC
     #define _CRT_NONSTDC_NO_DEPRECATE 
@@ -442,11 +446,11 @@ struct ini_internal_property_t
 
 struct ini_t
     {
-    ini_internal_section_t* sections;
+    struct ini_internal_section_t* sections;
     int section_capacity;
     int section_count;
 
-    ini_internal_property_t* properties;
+    struct ini_internal_property_t* properties;
     int property_capacity;
     int property_count;
 
@@ -482,12 +486,12 @@ ini_t* ini_create( void* memctx )
 
     ini = (ini_t*) INI_MALLOC( memctx, sizeof( ini_t ) );
     ini->memctx = memctx;
-    ini->sections = (ini_internal_section_t*) INI_MALLOC( ini->memctx, INITIAL_CAPACITY * sizeof( ini->sections[ 0 ] ) );
+    ini->sections = (struct ini_internal_section_t*) INI_MALLOC( ini->memctx, INITIAL_CAPACITY * sizeof( ini->sections[ 0 ] ) );
     ini->section_capacity = INITIAL_CAPACITY;
     ini->section_count = 1; /* global section */
     ini->sections[ 0 ].name[ 0 ] = '\0'; 
     ini->sections[ 0 ].name_large = 0;
-    ini->properties = (ini_internal_property_t*) INI_MALLOC( ini->memctx, INITIAL_CAPACITY * sizeof( ini->properties[ 0 ] ) );
+    ini->properties = (struct ini_internal_property_t*) INI_MALLOC( ini->memctx, INITIAL_CAPACITY * sizeof( ini->properties[ 0 ] ) );
     ini->property_capacity = INITIAL_CAPACITY;
     ini->property_count = 0;
     return ini;
@@ -773,7 +777,7 @@ int ini_find_property( ini_t const* ini, int section, char const* name, int name
 
 int ini_section_add( ini_t* ini, char const* name, int length )
     {
-    ini_internal_section_t* new_sections;
+    struct ini_internal_section_t* new_sections;
     
     if( ini && name )
         {
@@ -781,7 +785,7 @@ int ini_section_add( ini_t* ini, char const* name, int length )
         if( ini->section_count >= ini->section_capacity )
             {
             ini->section_capacity *= 2;
-            new_sections = (ini_internal_section_t*) INI_MALLOC( ini->memctx, 
+            new_sections = (struct ini_internal_section_t*) INI_MALLOC( ini->memctx, 
                 ini->section_capacity * sizeof( ini->sections[ 0 ] ) );
             INI_MEMCPY( new_sections, ini->sections, ini->section_count * sizeof( ini->sections[ 0 ] ) );
             INI_FREE( ini->memctx, ini->sections );
@@ -809,7 +813,7 @@ int ini_section_add( ini_t* ini, char const* name, int length )
 
 void ini_property_add( ini_t* ini, int section, char const* name, int name_length, char const* value, int value_length )
     {
-    ini_internal_property_t* new_properties;
+    struct ini_internal_property_t* new_properties;
 
     if( ini && name && section >= 0 && section < ini->section_count )
         {
@@ -820,7 +824,7 @@ void ini_property_add( ini_t* ini, int section, char const* name, int name_lengt
             {
 
             ini->property_capacity *= 2;
-            new_properties = (ini_internal_property_t*) INI_MALLOC( ini->memctx, 
+            new_properties = (struct ini_internal_property_t*) INI_MALLOC( ini->memctx, 
                 ini->property_capacity * sizeof( ini->properties[ 0 ] ) );
             INI_MEMCPY( new_properties, ini->properties, ini->property_count * sizeof( ini->properties[ 0 ] ) );
             INI_FREE( ini->memctx, ini->properties );
@@ -888,7 +892,7 @@ void ini_section_remove( ini_t* ini, int section )
     }
 
 
-void ini_property_remove( ini_t* const ini, int const section, int property )
+void ini_property_remove( ini_t* ini, int section, int property )
     {
     int p;
 

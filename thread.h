@@ -1010,7 +1010,7 @@ int thread_atomic_int_load( thread_atomic_int_t* atomic )
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
-        return __sync_fetch_and_add( &atomic->i, 0 );
+        return (int)__sync_fetch_and_add( &atomic->i, 0 );
     
     #else 
         #error Unknown platform.
@@ -1043,7 +1043,7 @@ int thread_atomic_int_inc( thread_atomic_int_t* atomic )
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
-        return __sync_fetch_and_add( &atomic->i, 1 );
+        return (int)__sync_fetch_and_add( &atomic->i, 1 );
     
     #else 
         #error Unknown platform.
@@ -1059,7 +1059,7 @@ int thread_atomic_int_dec( thread_atomic_int_t* atomic )
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
-        return __sync_fetch_and_sub( &atomic->i, 1 );
+        return (int)__sync_fetch_and_sub( &atomic->i, 1 );
 
     #else 
         #error Unknown platform.
@@ -1075,7 +1075,7 @@ int thread_atomic_int_add( thread_atomic_int_t* atomic, int value )
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
-        return __sync_fetch_and_add( &atomic->i, value );
+        return (int)__sync_fetch_and_add( &atomic->i, value );
     
     #else 
         #error Unknown platform.
@@ -1091,7 +1091,7 @@ int thread_atomic_int_sub( thread_atomic_int_t* atomic, int value )
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
-        return __sync_fetch_and_sub( &atomic->i, value );
+        return (int)__sync_fetch_and_sub( &atomic->i, value );
 
     #else 
         #error Unknown platform.
@@ -1107,7 +1107,7 @@ int thread_atomic_int_swap( thread_atomic_int_t* atomic, int desired )
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
-        int old = __sync_lock_test_and_set( &atomic->i, desired );
+        int old = (int)__sync_lock_test_and_set( &atomic->i, desired );
         __sync_lock_release( &atomic->i );
         return old;
     
@@ -1125,7 +1125,7 @@ int thread_atomic_int_compare_and_swap( thread_atomic_int_t* atomic, int expecte
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
-        return __sync_val_compare_and_swap( &atomic->i, expected, desired );
+        return (int)__sync_val_compare_and_swap( &atomic->i, expected, desired );
     
     #else 
         #error Unknown platform.

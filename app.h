@@ -156,8 +156,9 @@ Here's a basic sample program which starts a windowed app and plots random pixel
 	#include <stdlib.h> // for rand and __argc/__argv
 	#include <string.h> // for memset
 
-	int app_proc( app_t* app, void* )
+	int app_proc( app_t* app, void* user_data )
 		{
+        (void) user_data;
 		APP_U32 canvas[ 320 * 200 ]; // a place for us to draw stuff
 		memset( canvas, 0xC0, sizeof( canvas ) ); // clear to grey
 		app_screenmode( app, APP_SCREENMODE_WINDOW );
@@ -168,7 +169,7 @@ Here's a basic sample program which starts a windowed app and plots random pixel
 			// plot a random pixel on the canvas
 			int x = rand() % 320;
 			int y = rand() % 200;
-			int color = rand() | ( rand() << 16 );
+			APP_U32 color = rand() | ( (APP_U32) rand() << 16 );
 			canvas[ x + y * 320 ] = color;
 
 			// display the canvas
@@ -206,9 +207,9 @@ define which platform you are running on, like this:
 Customization
 -------------
 There are a few different things in app.h which are configurable by #defines. Most of the API use the `int` data type,
-for integer values where the exact size is not relevant. However, for some functions, it specifically makes use of 16, 
+for integer values where the exact size is not important. However, for some functions, it specifically makes use of 16, 
 32 and 64 bit data types. These default to using `short`, `unsigned int` and `unsigned long long` by default, but can be
-redefined by #defining APP_S16, APP_U32 and APP_U64 resepectively, before including app.h. This is useful if you, for 
+redefined by #defining APP_S16, APP_U32 and APP_U64 respectively, before including app.h. This is useful if you, for 
 example, use the types from `<stdint.h>` in the rest of your program, and you want app.h to use compatible types. In 
 this case, you would include app.h using the following code:
 
@@ -1103,8 +1104,11 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
 
 #define _CRT_NONSTDC_NO_DEPRECATE 
 #define _CRT_SECURE_NO_WARNINGS
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501 // requires Windows XP minimum
+
+#if !defined( _WIN32_WINNT ) || _WIN32_WINNT < 0x0501 
+	#undef _WIN32_WINNT
+	#define _WIN32_WINNT 0x501// requires Windows XP minimum
+#endif
 // 0x0400=Windows NT 4.0, 0x0500=Windows 2000, 0x0501=Windows XP, 0x0502=Windows Server 2003, 0x0600=Windows Vista, 
 // 0x0601=Windows 7, 0x0602=Windows 8, 0x0603=Windows 8.1, 0x0A00=Windows 10, 
 #define _WINSOCKAPI_
@@ -1127,7 +1131,7 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
 #include <math.h>
 
 #ifndef APP_MALLOC
-	#include <malloc.h>
+	#include <stdlib.h>
 	#if defined(__cplusplus)
 		#define APP_MALLOC( ctx, size ) ( ::malloc( size ) )
 		#define APP_FREE( ctx, ptr ) ( ::free( ptr ) )

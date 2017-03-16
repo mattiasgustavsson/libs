@@ -408,6 +408,10 @@ struct strpool_t
 #ifdef STRPOOL_IMPLEMENTATION
 #undef STRPOOL_IMPLEMENTATION
 
+#define _CRT_NONSTDC_NO_DEPRECATE 
+#define _CRT_SECURE_NO_WARNINGS
+#include <stddef.h>
+
 #ifndef STRPOOL_ASSERT
     #define _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_SECURE_NO_WARNINGS
@@ -1032,17 +1036,17 @@ STRPOOL_U64 strpool_inject( strpool_t* pool, char const* string, int length )
 
     pool->handles[ handle_index ].entry_index = pool->entry_count;
         
-    strpool_internal_entry_t& entry = pool->entries[ pool->entry_count ];
+    strpool_internal_entry_t* entry = &pool->entries[ pool->entry_count ];
     ++pool->entry_count;
         
     int data_size = length + 1 + (int) ( 2 * sizeof( STRPOOL_U32 ) );
     char* data = strpool_internal_get_data_storage( pool, data_size, &data_size );
-    entry.hash_slot = slot;
-    entry.handle_index = handle_index;
-    entry.data = data;
-    entry.size = data_size;
-    entry.length = length;
-    entry.refcount = 0;
+    entry->hash_slot = slot;
+    entry->handle_index = handle_index;
+    entry->data = data;
+    entry->size = data_size;
+    entry->length = length;
+    entry->refcount = 0;
 
     *(STRPOOL_U32*)(data) = hash;
     data += sizeof( STRPOOL_U32 );
@@ -1225,6 +1229,7 @@ char* strpool_collate( strpool_t const* pool, int* count )
 
 void strpool_free_collated( strpool_t const* pool, char* collated_ptr )
     {
+    (void) pool;
     STRPOOL_FREE( pool->memctx, collated_ptr );
     }
 

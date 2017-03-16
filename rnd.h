@@ -23,25 +23,25 @@ Additional Contributors
     #define RND_U64 unsigned long long
 #endif
 
-struct rnd_pcg_t { RND_U64 state[ 2 ]; };
+typedef struct rnd_pcg_t { RND_U64 state[ 2 ]; } rnd_pcg_t;
 void rnd_pcg_seed( rnd_pcg_t* pcg, RND_U32 seed );
 RND_U32 rnd_pcg_next( rnd_pcg_t* pcg );
 float rnd_pcg_nextf( rnd_pcg_t* pcg );
 int rnd_pcg_range( rnd_pcg_t* pcg, int min, int max );
 
-struct rnd_well_t { RND_U32 state[ 17 ]; };
+typedef struct rnd_well_t { RND_U32 state[ 17 ]; } rnd_well_t;
 void rnd_well_seed( rnd_well_t* well, RND_U32 seed );
 RND_U32 rnd_well_next( rnd_well_t* well );
 float rnd_well_nextf( rnd_well_t* well );
 int rnd_well_range( rnd_well_t* well, int min, int max );
 
-struct rnd_gamerand_t { RND_U32 state[ 2 ]; };
+typedef struct rnd_gamerand_t { RND_U32 state[ 2 ]; } rnd_gamerand_t;
 void rnd_gamerand_seed( rnd_gamerand_t* gamerand, RND_U32 seed );
 RND_U32 rnd_gamerand_next( rnd_gamerand_t* gamerand );
 float rnd_gamerand_nextf( rnd_gamerand_t* gamerand );
 int rnd_gamerand_range( rnd_gamerand_t* gamerand, int min, int max );
 
-struct rnd_xorshift_t { RND_U64 state[ 2 ]; };
+typedef struct rnd_xorshift_t { RND_U64 state[ 2 ]; } rnd_xorshift_t;
 void rnd_xorshift_seed( rnd_xorshift_t* xorshift, RND_U64 seed );
 RND_U64 rnd_xorshift_next( rnd_xorshift_t* xorshift );
 float rnd_xorshift_nextf( rnd_xorshift_t* xorshift );
