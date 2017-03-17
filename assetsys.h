@@ -5762,8 +5762,8 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
 
     struct assetsys_internal_dir_t* dir = assetsys_internal_dir_open( *sys->temp == '\0' ? "." : sys->temp, sys->memctx );
         
-    struct assetsys_internal_dir_entry_t* dirent = assetsys_internal_dir_read( dir );
-    while( dirent )
+    struct assetsys_internal_dir_entry_t* dirent;
+    for( dirent = assetsys_internal_dir_read( dir ); dirent != NULL; dirent = assetsys_internal_dir_read( dir ) )
         {
         char const* name = assetsys_internal_dir_name( dirent );
         if( !name || *name == '\0' || strcmp( name, "." ) == 0 || strcmp( name, ".." ) == 0 ) continue;
@@ -5840,9 +5840,7 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
                 as_dir->collated_index = assetsys_internal_register_collated( sys, sys->temp, 0 );
                 assetsys_internal_recurse_directories( sys, as_dir->collated_index, mount );
                 }
-            }
-
-        dirent = assetsys_internal_dir_read( dir );
+            }        
         }
     assetsys_internal_dir_close( dir );
     }
