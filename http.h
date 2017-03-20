@@ -17,14 +17,14 @@ before you include this file in *one* C/C++ file to create the implementation.
 #define _CRT_SECURE_NO_WARNINGS
 #include <stddef.h> // for size_t
 
-enum http_status_t
+typedef enum http_status_t
     {
     HTTP_STATUS_PENDING,
     HTTP_STATUS_COMPLETED,
     HTTP_STATUS_FAILED,
-    };
+    } http_status_t;
 
-struct http_t
+typedef struct http_t
     {
     http_status_t status;
     int status_code;
@@ -32,7 +32,7 @@ struct http_t
     char const* content_type;
     size_t response_size;
     void* response_data;
-    };
+    } http_t;
 
 http_t* http_get( char const* url, void* memctx );
 http_t* http_post( char const* url, void const* data, size_t size, void* memctx );
@@ -191,6 +191,7 @@ Releases the resources acquired by `http_get` or `http_post`. Should be call whe
     #define _CRT_SECURE_NO_WARNINGS
     #pragma warning( push )
     #pragma warning( disable: 4127 ) // conditional expression is constant
+    #pragma warning( disable: 4255 ) // 'function' : no function prototype given: converting '()' to '(void)'
     #pragma warning( disable: 4365 ) // 'action' : conversion from 'type_1' to 'type_2', signed/unsigned mismatch
     #pragma warning( disable: 4574 ) // 'Identifier' is defined to be '0': did you mean to use '#if identifier'?
     #pragma warning( disable: 4668 ) // 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directive'
@@ -225,7 +226,7 @@ Releases the resources acquired by `http_get` or `http_post`. Should be call whe
     #define HTTP_FREE( ctx, ptr ) ( free( ptr ) )
 #endif
 
-struct http_internal_t 
+typedef struct http_internal_t 
     {
     /* keep this at the top!*/ 
     http_t http;
@@ -245,7 +246,7 @@ struct http_internal_t
     size_t data_size;
     size_t data_capacity;
     void* data;
-    };
+    } http_internal_t;
 
 
 static int http_internal_parse_url( char const* url, char* address, size_t address_capacity, char* port, 
@@ -297,7 +298,7 @@ static int http_internal_parse_url( char const* url, char* address, size_t addre
 HTTP_SOCKET http_internal_connect( char const* address, char const* port )
     {   
     // set up hints for getaddrinfo
-    addrinfo hints;
+    struct addrinfo hints;
     memset( &hints, 0, sizeof( hints ) );
     hints.ai_family = AF_UNSPEC; // the Internet Protocol version 4 (IPv4) address family.
     hints.ai_flags = AI_PASSIVE;
@@ -305,7 +306,7 @@ HTTP_SOCKET http_internal_connect( char const* address, char const* port )
     hints.ai_protocol = IPPROTO_TCP;    // Use Transmission Control Protocol (TCP).
 
     // resolve the server address and port
-    addrinfo* addri = 0;
+    struct addrinfo* addri = 0;
     int error = getaddrinfo( address, port, &hints, &addri) ;
     if( error != 0 ) return HTTP_INVALID_SOCKET;
 
@@ -486,7 +487,7 @@ http_status_t http_process( http_t* http )
         #pragma warning( disable: 4548 ) // expression before comma has no effect; expected expression with side-effect
         FD_SET( internal->socket, &sockets_to_check );
         #pragma warning( pop )
-        timeval timeout; timeout.tv_sec = 0; timeout.tv_usec = 0;
+        struct timeval timeout; timeout.tv_sec = 0; timeout.tv_usec = 0;
         // check if socket is ready for send
         if( select( (int)( internal->socket + 1 ), NULL, &sockets_to_check, NULL, &timeout ) == 1 ) 
             {
@@ -528,7 +529,7 @@ http_status_t http_process( http_t* http )
     #pragma warning( disable: 4548 ) // expression before comma has no effect; expected expression with side-effect
     FD_SET( internal->socket, &sockets_to_check );
     #pragma warning( pop )
-    timeval timeout; timeout.tv_sec = 0; timeout.tv_usec = 0;
+    struct timeval timeout; timeout.tv_sec = 0; timeout.tv_usec = 0;
     while( select( (int)( internal->socket + 1 ), &sockets_to_check, NULL, NULL, &timeout ) == 1 )
         {
         char buffer[ 4096 ];
