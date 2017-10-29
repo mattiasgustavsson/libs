@@ -59,6 +59,9 @@ int assetsys_subdir_count( assetsys_t* sys, char const* path );
 char const* assetsys_subdir_name( assetsys_t* sys, char const* path, int index );
 char const* assetsys_subdir_path( assetsys_t* sys, char const* path, int index );
 
+typedef void (*assetsys_callback)( const char* path );
+assetsys_error_t assetsys_poll_files( assetsys_t* sys, const char* mounted_as, assetsys_callback file_was_modified );
+
 #endif /* assetsys_h */
 
 /**
@@ -352,6 +355,17 @@ Returns the name, including the full path, of one of the files in the specified 
 path, including the `mount_as` prefix specified when the data source was mounted, and matching is case insensitive. 
 `index` needs to be between 0 and one less than the count returned by calling `assetsys_subdir_count` with the same 
 path. If the path is invalid or index is out of range, `assetsys_subdir_path` returns NULL.
+
+assetsys_poll_files
+-------------------
+
+	assetsys_error_t assetsys_poll_files( assetsys_t* sys, const char* mounted_as, assetsys_callback file_was_modified )
+
+Loops over all files of a particular mount looking for updated timestamps signifying the file was modified since the
+last call to `assetsys_poll_files` was made. Note: timestamps are initially recorded upon mounting a drive. This func-
+tion does not work on drives mounted as zip files, and will return `ASSETSYS_ERROR_INVALID_MOUNT` in such a case. The
+callback `file_was_modified` will be called upon each modified file, and the path to said file is provided to the call-
+back.
 
 
 **/
@@ -5385,6 +5399,12 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
         };
 
 
+    struct assetsys_internal_time_t
+        {
+        FILETIME time;
+        };
+
+
     static struct assetsys_internal_dir_t* assetsys_internal_dir_open( char const* path, void* memctx )
         {
         if( !path ) return 0;
@@ -5461,12 +5481,56 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
         }
 
 
+    void assetsys_internal_filetime_zero( void* time )
+        {
+        FILETIME initialized_to_zero = { 0 };
+        *(FILETIME*)time = initialized_to_zero;
+        }
+
+
+    static int assetsys_internal_filetime( const char* path, void* time )
+        {
+        assetsys_internal_filetime_zero(time);
+        WIN32_FILE_ATTRIBUTE_DATA data;
+
+        if ( GetFileAttributesExA( path, GetFileExInfoStandard, &data ) )
+            {
+            *(FILETIME*)time = data.ftLastWriteTime;
+            return 1;
+            }
+
+        return 0;
+        }
+
+
+    int assetsys_internal_compare_filetimes( void* time_a, void* time_b )
+        {
+        return CompareFileTime( (FILETIME*)time_a, (FILETIME*)time_b );
+        }
+
+
 #else
 
     #include <dirent.h>
 
     typedef struct assetsys_internal_dir_t assetsys_internal_dir_t;
     typedef struct assetsys_internal_dir_entry_t assetsys_internal_dir_entry_t;
+
+
+    struct assetsys_internal_time_t
+        {
+        FILETIME time;
+        };
+
+
+    struct assetsys_internal_file_t
+        {
+        int size;
+        int zip_index;
+        int collated_index;
+        time_t time;
+        };
+
 
     static assetsys_internal_dir_t* assetsys_internal_dir_open( char const* path, void* memctx )
         {
@@ -5510,8 +5574,29 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
         return ( (struct dirent*)entry )->d_type == DT_DIR;
         }
 
-#endif 
 
+    void assetsys_internal_filetime_zero( void* time )
+        {
+        time_t initialized_to_zero = { 0 };
+        *(time_t*)time = initialized_to_zero;
+        }
+
+
+    static int assetsys_internal_filetime( const char* path, void* time )
+        {
+        struct stat info;
+        if ( stat( path, &info ) ) return 0;
+        *(timt_t*)time = info.st_mtime;
+        return 1;
+        }
+
+
+    int assetsys_internal_compare_filetimes( void* time_a, void* time_b )
+        {
+        return (int)difftime( (time_t*)time_a, (time_t*)time );
+        }
+
+#endif
 
 static void* assetsys_internal_mz_alloc( void* memctx, size_t items, size_t size ) 
     { 
@@ -5555,6 +5640,7 @@ struct assetsys_internal_file_t
     int size;
     int zip_index;
     int collated_index;
+    assetsys_internal_time_t time;
     };
 
 struct assetsys_internal_folder_t
@@ -5748,7 +5834,6 @@ static void assetsys_internal_collate_directories( assetsys_t* sys, struct asset
         }
     }
 
-
 static void assetsys_internal_recurse_directories( assetsys_t* sys, int const collated_index, 
     struct assetsys_internal_mount_t* const mount )
     {
@@ -5782,8 +5867,11 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
             strcat( sys->temp, name );
 
             struct stat s;
+            assetsys_internal_time_t time;
             if( stat( sys->temp, &s ) == 0 )
                 {
+                ASSETSYS_ASSERT( assetsys_internal_filetime( sys->temp, &time.time ) );
+
                 strcpy( sys->temp, assetsys_internal_get_string( sys, mount->mounted_as ) );
                 strcat( sys->temp, "/" );
                 strcat( sys->temp, file_path );
@@ -5804,6 +5892,7 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
                 file->size = (int) s.st_size;
                 file->zip_index = -1;
                 file->collated_index = assetsys_internal_register_collated( sys, sys->temp, 1 );
+                file->time = time;
                 }
             }
         else if( is_folder )
@@ -6079,7 +6168,7 @@ assetsys_error_t assetsys_file( assetsys_t* sys, char const* path, assetsys_file
     ASSETSYS_U64 handle = strpool_inject( &sys->strpool, path, (int) strlen( path ) );
 
     int m = sys->mounts_count;
-    while( m > 0)
+    while( m > 0 )
         {
         --m;
         struct assetsys_internal_mount_t* mount = &sys->mounts[ m ];
@@ -6129,8 +6218,7 @@ assetsys_error_t assetsys_file_load( assetsys_t* sys, assetsys_file_t f, void* b
         {
         strcpy( sys->temp, assetsys_internal_get_string( sys, mount->path ) );
         strcat( sys->temp, *sys->temp == '\0' ? "" : "/" );
-        strcat( sys->temp, assetsys_internal_get_string( sys, 
-            sys->collated[ file->collated_index ].path ) + mount->mount_len + 1 );
+        strcat( sys->temp, assetsys_internal_get_string( sys, sys->collated[ file->collated_index ].path ) + mount->mount_len + 1 );
         FILE* fp = fopen( sys->temp, "rb" );
         if( !fp ) return ASSETSYS_ERROR_FAILED_TO_READ_FILE;
         int size = (int) fread( buffer, 1, (size_t) file->size, fp );
@@ -6273,6 +6361,42 @@ static char* assetsys_internal_dirname( char const* path )
     else *result = '\0';
 
     return result;
+    }
+
+assetsys_error_t assetsys_poll_files( assetsys_t* sys, const char* mounted_as, assetsys_callback file_was_modified )
+    {
+    ASSETSYS_U64 mount_handle = strpool_inject( &sys->strpool, mounted_as, (int) strlen( mounted_as ) );
+
+    for( int i = 0; i < sys->mounts_count; ++i )
+        {
+        struct assetsys_internal_mount_t* mount = &sys->mounts[ i ];
+
+        if( mount->mounted_as == mount_handle )
+            {
+            if( mount->type == ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP ) return ASSETSYS_ERROR_INVALID_MOUNT;
+
+            for( int i = 0; i < mount->files_count; ++i )
+                {
+                assetsys_internal_file_t* file = mount->files + i;
+                const char* virtual_path = assetsys_internal_get_string( sys, sys->collated[ file->collated_index ].path );
+                strcpy( sys->temp, assetsys_internal_get_string( sys, mount->path ) );
+                strcat( sys->temp, *sys->temp == '\0' ? "" : "/" );
+                strcat( sys->temp, virtual_path + mount->mount_len + 1 );
+
+                assetsys_internal_time_t now_time;
+                assetsys_internal_filetime( sys->temp, &now_time );
+
+                int difference = assetsys_internal_compare_filetimes(&file->time, &now_time);
+                if (difference < 0)
+                    {
+                    file->time = now_time;
+                    file_was_modified( virtual_path );
+                    }
+                }
+            }
+        }
+
+    return ASSETSYS_SUCCESS;
     }
 
 
