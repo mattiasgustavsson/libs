@@ -5967,11 +5967,10 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
 
                 // register new file
                 assetsys_file_t f;
-                auto ret = assetsys_file(sys, sys->temp, &f);
-                if( ret == ASSETSYS_ERROR_FILE_NOT_FOUND )
+                if( assetsys_file(sys, sys->temp, &f) == ASSETSYS_ERROR_FILE_NOT_FOUND )
                     {
                     struct assetsys_internal_file_t* file = &mount->files[ mount->files_count++ ];
-                    file->size = (int) s.st_size;
+                    file->size = (int)s.st_size;
                     file->zip_index = -1;
                     file->collated_index = assetsys_internal_register_collated( sys, sys->temp, 1 );
                     file->time = time;
@@ -6494,6 +6493,10 @@ assetsys_error_t assetsys_poll_files( assetsys_t* sys, const char* mounted_as, a
                 int difference = assetsys_internal_compare_filetimes(&file->time, &now_time);
                 if (difference < 0)
                     {
+                    struct stat s;
+                    int ret = stat( sys->temp, &s );
+                    ASSETSYS_ASSERT( ret );
+                    file->size = (int)s.st_size;
                     file->time = now_time;
                     file_was_modified( virtual_path );
                     }
