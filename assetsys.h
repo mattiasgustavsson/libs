@@ -61,6 +61,10 @@ char const* assetsys_subdir_path( assetsys_t* sys, char const* path, int index )
 
 typedef void (*assetsys_callback)( const char* path );
 assetsys_error_t assetsys_poll_files( assetsys_t* sys, const char* mounted_as, assetsys_callback file_was_modified );
+assetsys_error_t assetsys_get_actual_path( assetsys_t* sys, const char* path, char* buffer );
+assetsys_error_t assetsys_remount( assetsys_t* sys, char const* mounted_as, assetsys_callback new_file_found );
+
+#define ASSETSYS_MAX_PATH 1024
 
 #endif /* assetsys_h */
 
@@ -359,13 +363,32 @@ path. If the path is invalid or index is out of range, `assetsys_subdir_path` re
 assetsys_poll_files
 -------------------
 
-	assetsys_error_t assetsys_poll_files( assetsys_t* sys, const char* mounted_as, assetsys_callback file_was_modified )
+    assetsys_error_t assetsys_poll_files( assetsys_t* sys, const char* mounted_as, assetsys_callback file_was_modified )
 
 Loops over all files of a particular mount looking for updated timestamps signifying the file was modified since the
 last call to `assetsys_poll_files` was made. Note: timestamps are initially recorded upon mounting a drive. This func-
 tion does not work on drives mounted as zip files, and will return `ASSETSYS_ERROR_INVALID_MOUNT` in such a case. The
 callback `file_was_modified` will be called upon each modified file, and the path to said file is provided to the call-
 back.
+
+assetsys_get_actual_path
+------------------------
+
+    assetsys_error_t assetsys_get_actual_path( assetsys_t* sys, assetsys_file_t f, char* buffer )
+
+Copies the actual path (not the virtual path) for the file `f` into `buffer` via strcpy. Make sure your buffer is large
+enough to prevent buffer overflowing. Will return `ASSETSYS_ERROR_INVALID_MOUNT` if the file `f` is associated with
+a zip drive -- this function is intended to be useful during development, and not as a release tool. Internally path
+buffers are of size ASSETSYS_MAX_PATH.
+
+assetsys_remount
+----------------
+
+    assetsys_error_t assetsys_remount( assetsys_t* sys, char const* mounted_as, assetsys_callback new_file_found )
+
+Scans the mount for new files, reporting their path to `new_file_found`. Registers all new files into the mount. This
+function is intended for development purposes, not for release builds, and as such only works on directory mounts;
+does *not* work on .zip archive mounts, and will return `ASSETSYS_ERROR_INVALID_MOUNT` in such a case.
 
 
 **/
@@ -897,7 +920,7 @@ typedef int mz_bool;
 enum
 {
   MZ_ZIP_MAX_IO_BUF_SIZE = 64*1024,
-  MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE = 260,
+  MZ_ZIP_MAX_ARCHIVE_FILENAME_SIZE = ASSETSYS_MAX_PATH,
   MZ_ZIP_MAX_ARCHIVE_FILE_COMMENT_SIZE = 256
 };
 
@@ -5350,7 +5373,7 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 #define _CRT_SECURE_NO_WARNINGS
 #include <sys/stat.h>
 
-#include "strpool.h"
+#include <sfh/strpool.h>
 
 #ifndef ASSETSYS_ASSERT
     #define _CRT_NONSTDC_NO_DEPRECATE 
@@ -5658,6 +5681,7 @@ struct assetsys_internal_mount_t
     {
     ASSETSYS_U64 path;
     ASSETSYS_U64 mounted_as;
+    int dir_collated_index;
     int mount_len;
     enum assetsys_internal_mount_type_t type;
     mz_zip_archive zip;
@@ -5693,7 +5717,7 @@ struct assetsys_t
     int collated_count;
     int collated_capacity;
 
-    char temp[ 260 ];
+    char temp[ ASSETSYS_MAX_PATH ];
     };
 
 
@@ -5834,8 +5858,60 @@ static void assetsys_internal_collate_directories( assetsys_t* sys, struct asset
         }
     }
 
-static void assetsys_internal_recurse_directories( assetsys_t* sys, int const collated_index, 
-    struct assetsys_internal_mount_t* const mount )
+
+assetsys_error_t assetsys_file( assetsys_t* sys, char const* path, assetsys_file_t* file )
+    {
+    if( !file || !path ) return ASSETSYS_ERROR_INVALID_PARAMETER;
+
+    ASSETSYS_U64 handle = strpool_inject( &sys->strpool, path, (int) strlen( path ) );
+
+    int m = sys->mounts_count;
+    while( m > 0 )
+        {
+        --m;
+        struct assetsys_internal_mount_t* mount = &sys->mounts[ m ];
+        for( int i = 0; i < mount->files_count; ++i )
+            {
+            ASSETSYS_U64 h = sys->collated[ mount->files[ i ].collated_index ].path;
+            if( handle == h )
+                {
+                file->mount = mount->mounted_as;
+                file->path = mount->path;
+                file->index = i;
+                return ASSETSYS_SUCCESS;
+                }
+            }
+        }
+
+    strpool_discard( &sys->strpool, handle );
+    return ASSETSYS_ERROR_FILE_NOT_FOUND;
+    }
+
+
+struct assetsys_internal_folder_t* assetsys_internal_get_dir( assetsys_t* sys, char const* path )
+    {
+    if( !path ) return 0;
+
+    ASSETSYS_U64 handle = strpool_inject( &sys->strpool, path, (int) strlen( path ) );
+
+    int m = sys->mounts_count;
+    while( m > 0 )
+        {
+        --m;
+        struct assetsys_internal_mount_t* mount = &sys->mounts[ m ];
+        for( int i = 0; i < mount->dirs_count; ++i )
+            {
+            ASSETSYS_U64 h = sys->collated[ mount->dirs[ i ].collated_index ].path;
+            if( handle == h ) return mount->dirs + i;
+            }
+        }
+
+    strpool_discard( &sys->strpool, handle );
+    return 0;
+    }
+
+
+static void assetsys_internal_recurse_directories( assetsys_t* sys, int const collated_index, struct assetsys_internal_mount_t* const mount, assetsys_callback new_file_found )
     {
     char const* path = assetsys_internal_get_string( sys, sys->collated[ collated_index ].path );
     path += mount->mount_len;
@@ -5846,7 +5922,7 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
     strcat( sys->temp, path );
 
     struct assetsys_internal_dir_t* dir = assetsys_internal_dir_open( *sys->temp == '\0' ? "." : sys->temp, sys->memctx );
-        
+
     struct assetsys_internal_dir_entry_t* dirent;
     for( dirent = assetsys_internal_dir_read( dir ); dirent != NULL; dirent = assetsys_internal_dir_read( dir ) )
         {
@@ -5870,7 +5946,8 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
             assetsys_internal_time_t time;
             if( stat( sys->temp, &s ) == 0 )
                 {
-                ASSETSYS_ASSERT( assetsys_internal_filetime( sys->temp, &time.time ) );
+                int error = assetsys_internal_filetime( sys->temp, &time.time );
+                ASSETSYS_ASSERT( error );
 
                 strcpy( sys->temp, assetsys_internal_get_string( sys, mount->mounted_as ) );
                 strcat( sys->temp, "/" );
@@ -5888,11 +5965,18 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
                     mount->files = new_files;
                     }
 
-                struct assetsys_internal_file_t* file = &mount->files[ mount->files_count++ ];
-                file->size = (int) s.st_size;
-                file->zip_index = -1;
-                file->collated_index = assetsys_internal_register_collated( sys, sys->temp, 1 );
-                file->time = time;
+                // register new file
+                assetsys_file_t f;
+                auto ret = assetsys_file(sys, sys->temp, &f);
+                if( ret == ASSETSYS_ERROR_FILE_NOT_FOUND )
+                    {
+                    struct assetsys_internal_file_t* file = &mount->files[ mount->files_count++ ];
+                    file->size = (int) s.st_size;
+                    file->zip_index = -1;
+                    file->collated_index = assetsys_internal_register_collated( sys, sys->temp, 1 );
+                    file->time = time;
+                    if( new_file_found ) new_file_found( sys->temp );
+                    }
                 }
             }
         else if( is_folder )
@@ -5925,11 +6009,18 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
                     ASSETSYS_FREE( sys->memctx, mount->dirs );
                     mount->dirs = new_dirs;
                     }
-                struct assetsys_internal_folder_t* as_dir = &mount->dirs[ mount->dirs_count++ ];
-                as_dir->collated_index = assetsys_internal_register_collated( sys, sys->temp, 0 );
-                assetsys_internal_recurse_directories( sys, as_dir->collated_index, mount );
+
+                // register new directory
+                struct assetsys_internal_folder_t* as_dir = assetsys_internal_get_dir( sys, sys->temp );
+                if( !as_dir )
+                    {
+                    as_dir = &mount->dirs[ mount->dirs_count++ ];
+                    as_dir->collated_index = assetsys_internal_register_collated( sys, sys->temp, 0 );
+                    }
+
+                assetsys_internal_recurse_directories( sys, as_dir->collated_index, mount, new_file_found );
                 }
-            }        
+            }
         }
     assetsys_internal_dir_close( dir );
     }
@@ -5943,12 +6034,12 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
     if( strchr( mount_as, ':' ) ) return ASSETSYS_ERROR_INVALID_PATH;
     if( strchr( mount_as, '\\' ) ) return ASSETSYS_ERROR_INVALID_PATH;
     int len = (int) strlen( path );
-    if( len > 0 && path[ 0 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;       
-    if( len > 1 && path[ len - 1 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;     
+    if( len > 0 && path[ 0 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;
+    if( len > 1 && path[ len - 1 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;
     int mount_len = (int) strlen( mount_as );
-    if( mount_len == 0 || mount_as[ 0 ] != '/' || ( mount_len > 1 && mount_as[ mount_len - 1 ] == '/' ) ) 
-        return ASSETSYS_ERROR_INVALID_PATH;     
-    
+    if( mount_len == 0 || mount_as[ 0 ] != '/' || ( mount_len > 1 && mount_as[ mount_len - 1 ] == '/' ) )
+        return ASSETSYS_ERROR_INVALID_PATH;
+
     enum assetsys_internal_mount_type_t type;
 
     #if defined( _MSC_VER ) && _MSC_VER >= 1400
@@ -5985,7 +6076,7 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
     mount->mount_len = mount_as ? (int) strlen( mount_as ) : 0;
     mount->path = assetsys_internal_add_string( sys, path );
     mount->type = type;
-        
+
     mount->files_count = 0;
     mount->files_capacity = 4096;
     mount->files = (struct assetsys_internal_file_t*) ASSETSYS_MALLOC( sys->memctx, 
@@ -5998,10 +6089,11 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
 
     struct assetsys_internal_folder_t* dir = &mount->dirs[ mount->dirs_count++ ];
     dir->collated_index = assetsys_internal_register_collated( sys, mount_as, 0 );
-    
+    mount->dir_collated_index = dir->collated_index;
+
     if( type == ASSETSYS_INTERNAL_MOUNT_TYPE_DIR )
         {
-        assetsys_internal_recurse_directories( sys, dir->collated_index, mount );
+        assetsys_internal_recurse_directories( sys, dir->collated_index, mount, 0 );
         }
     else if( type == ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP )
         {
@@ -6027,21 +6119,20 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
                 if( mount->dirs_count >= mount->dirs_capacity )
                     {
                     mount->dirs_capacity *= 2;
-                    struct assetsys_internal_folder_t* new_dirs = (struct assetsys_internal_folder_t*) ASSETSYS_MALLOC( 
-                        sys->memctx, sizeof( *(mount->dirs) ) * mount->dirs_capacity );
+                    struct assetsys_internal_folder_t* new_dirs = (struct assetsys_internal_folder_t*) ASSETSYS_MALLOC( sys->memctx, sizeof( *(mount->dirs) ) * mount->dirs_capacity );
                     memcpy( new_dirs, mount->dirs, sizeof( *(mount->dirs) ) * mount->dirs_count );
                     ASSETSYS_FREE( sys->memctx, mount->dirs );
                     mount->dirs = new_dirs;
                     }
 
-                char filename[ 1024 ];                
+                char filename[ 1024 ];
                 mz_zip_reader_get_filename( &mount->zip, (mz_uint) i, filename, sizeof( filename ) );
 
                 struct assetsys_internal_folder_t* as_dir = &mount->dirs[ mount->dirs_count++ ];
                 strcpy( sys->temp, assetsys_internal_get_string( sys, mount->mounted_as ) );
                 strcat( sys->temp, "/" );
                 strcat( sys->temp, filename );
-                sys->temp[ strlen( sys->temp )  - 1 ] = '\0';
+                sys->temp[ strlen( sys->temp ) - 1 ] = '\0';
                 as_dir->collated_index = assetsys_internal_register_collated( sys, sys->temp, 0 );
                 }
             }
@@ -6053,8 +6144,7 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
                 if( mount->files_count >= mount->files_capacity )
                     {
                     mount->files_capacity *= 2;
-                    struct assetsys_internal_file_t* new_files = (struct assetsys_internal_file_t*) ASSETSYS_MALLOC( 
-                        sys->memctx, sizeof( *(mount->files) ) * mount->files_capacity );
+                    struct assetsys_internal_file_t* new_files = (struct assetsys_internal_file_t*) ASSETSYS_MALLOC( sys->memctx, sizeof( *(mount->files) ) * mount->files_capacity );
                     memcpy( new_files, mount->files, sizeof( *(mount->files) ) * mount->files_count );
                     ASSETSYS_FREE( sys->memctx, mount->files );
                     mount->files = new_files;
@@ -6079,7 +6169,7 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
                 file->zip_index = i;
 
                 char* dir_path = assetsys_internal_dirname( sys->temp );
-                ASSETSYS_U64 handle = strpool_inject( &sys->strpool, dir_path, (int) strlen( dir_path ) - 1 );               
+                ASSETSYS_U64 handle = strpool_inject( &sys->strpool, dir_path, (int) strlen( dir_path ) - 1 );
                 int found = 0;
                 for( int j = 0; j < mount->dirs_count; ++j )
                     {
@@ -6095,7 +6185,6 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
                 }
             }
         }
-        
 
     assetsys_internal_collate_directories( sys, mount );
 
@@ -6160,34 +6249,28 @@ assetsys_error_t assetsys_dismount( assetsys_t* sys, char const* path, char cons
     return ASSETSYS_ERROR_INVALID_MOUNT;
     }
 
+assetsys_error_t assetsys_remount( assetsys_t* sys, char const* mounted_as, assetsys_callback new_file_found )
+{
+    ASSETSYS_U64 mount_handle = strpool_inject( &sys->strpool, mounted_as, (int) strlen( mounted_as ) );
+    struct assetsys_internal_mount_t* mount = 0;
 
-assetsys_error_t assetsys_file( assetsys_t* sys, char const* path, assetsys_file_t* file )
+    for( int i = 0; i < sys->mounts_count; ++i )
     {
-    if( !file || !path ) return ASSETSYS_ERROR_INVALID_PARAMETER;
-
-    ASSETSYS_U64 handle = strpool_inject( &sys->strpool, path, (int) strlen( path ) );
-
-    int m = sys->mounts_count;
-    while( m > 0 )
+        if( sys->mounts[ i ].mounted_as == mount_handle )
         {
-        --m;
-        struct assetsys_internal_mount_t* mount = &sys->mounts[ m ];
-        for( int i = 0; i < mount->files_count; ++i )
-            {
-            ASSETSYS_U64 h = sys->collated[ mount->files[ i ].collated_index ].path;
-            if( handle == h )
-                {
-                file->mount = mount->mounted_as;
-                file->path = mount->path;
-                file->index = i;
-                return ASSETSYS_SUCCESS;
-                }
-            }
+            mount = &sys->mounts[ i ];
+            break;
         }
-
-    strpool_discard( &sys->strpool, handle );
-    return ASSETSYS_ERROR_FILE_NOT_FOUND;
     }
+
+    if( !mount ) return ASSETSYS_ERROR_INVALID_MOUNT;
+    if( mount->type == ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP ) return ASSETSYS_ERROR_INVALID_MOUNT;
+
+    assetsys_internal_recurse_directories( sys, mount->dir_collated_index, mount, new_file_found );
+    assetsys_internal_collate_directories( sys, mount );
+
+    return ASSETSYS_SUCCESS;
+}
 
 
 static int assetsys_internal_find_mount_index( assetsys_t* sys, ASSETSYS_U64 const mount, ASSETSYS_U64 const path )
@@ -6352,7 +6435,7 @@ char const* assetsys_subdir_path( assetsys_t* sys, char const* path, int index )
 
 static char* assetsys_internal_dirname( char const* path )
     {
-    static char result[ 260 ];
+    static char result[ ASSETSYS_MAX_PATH ];
     strncpy( result, path, sizeof( result ) );
       
     char* lastForwardSlash = strrchr( result, '/' );
@@ -6361,6 +6444,28 @@ static char* assetsys_internal_dirname( char const* path )
     else *result = '\0';
 
     return result;
+    }
+
+assetsys_error_t assetsys_get_actual_path( assetsys_t* sys, const char* path, char* buffer )
+    {
+    assetsys_file_t f;
+    assetsys_file( sys, path, &f );
+    int mount_index = assetsys_internal_find_mount_index( sys, f.mount, f.path );
+    if( mount_index < 0 ) return ASSETSYS_ERROR_INVALID_MOUNT;
+
+    struct assetsys_internal_mount_t* mount = &sys->mounts[ mount_index ];
+    struct assetsys_internal_file_t* file = &mount->files[ f.index ];
+    if( mount->type == ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP ) return ASSETSYS_ERROR_INVALID_MOUNT;
+    else
+        {
+        const char* actual_path_prefix = assetsys_internal_get_string( sys, mount->path );
+        strcpy( sys->temp, actual_path_prefix );
+        strcat( sys->temp, *sys->temp == '\0' ? "" : "/" );
+        const char* virtual_path = assetsys_internal_get_string( sys, sys->collated[ file->collated_index ].path );
+        strcat( sys->temp, virtual_path + mount->mount_len + 1 );
+        strcpy( buffer, sys->temp );
+        return ASSETSYS_SUCCESS;
+        }
     }
 
 assetsys_error_t assetsys_poll_files( assetsys_t* sys, const char* mounted_as, assetsys_callback file_was_modified )
@@ -6405,7 +6510,7 @@ assetsys_error_t assetsys_poll_files( assetsys_t* sys, const char* mounted_as, a
 
 /*
 revision history:
-    1.0     first released version  
+    1.0     first released version
 */
 
 
@@ -6466,4 +6571,3 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
 */
-    
