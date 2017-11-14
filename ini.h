@@ -388,36 +388,34 @@ the length is determined automatically, but in this case `value` has to be zero-
 
 #define INITIAL_CAPACITY ( 256 )
 
-#define _CRT_NONSTDC_NO_DEPRECATE 
-#define _CRT_SECURE_NO_WARNINGS
+#ifndef _CRT_NONSTDC_NO_DEPRECATE
+    #define _CRT_NONSTDC_NO_DEPRECATE
+#endif
+
+#ifndef _CRT_SECURE_NO_WARNINGS
+    #define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <stddef.h>
 
 #ifndef INI_MALLOC
-    #define _CRT_NONSTDC_NO_DEPRECATE 
-    #define _CRT_SECURE_NO_WARNINGS
     #include <stdlib.h>
     #define INI_MALLOC( ctx, size ) ( malloc( size ) )
     #define INI_FREE( ctx, ptr ) ( free( ptr ) )
 #endif
 
 #ifndef INI_MEMCPY
-    #define _CRT_NONSTDC_NO_DEPRECATE 
-    #define _CRT_SECURE_NO_WARNINGS
     #include <string.h>
     #define INI_MEMCPY( dst, src, cnt ) ( memcpy( dst, src, cnt ) )
 #endif 
 
 #ifndef INI_STRLEN
-    #define _CRT_NONSTDC_NO_DEPRECATE 
-    #define _CRT_SECURE_NO_WARNINGS
     #include <string.h>
     #define INI_STRLEN( s ) ( strlen( s ) )
 #endif 
 
 #ifndef INI_STRICMP
     #ifdef _WIN32
-        #define _CRT_NONSTDC_NO_DEPRECATE 
-        #define _CRT_SECURE_NO_WARNINGS
         #include <string.h>
         #define INI_STRICMP( s1, s2 ) ( stricmp( s1, s2 ) )
     #else                           
