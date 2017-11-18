@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-hashtable.h - v1.0 - Cache efficient hash table implementation for C/C++.
+hashtable.h - v1.1 - Cache efficient hash table implementation for C/C++.
 
 Do this:
     #define HASHTABLE_IMPLEMENTATION
@@ -24,13 +24,18 @@ void hashtable_term( hashtable_t* table );
 
 void hashtable_insert( hashtable_t* table, HASHTABLE_U64 key, void const* item );
 void hashtable_remove( hashtable_t* table, HASHTABLE_U64 key );
+void hashtable_clear( hashtable_t* table );
+
 void* hashtable_find( hashtable_t const* table, HASHTABLE_U64 key );
 
 int hashtable_count( hashtable_t const* table );
 void* hashtable_items( hashtable_t const* table );
 HASHTABLE_U64 const* hashtable_keys( hashtable_t const* table );
 
-#endif hashtable_h
+void hashtable_swap( hashtable_t* table, int index_a, int index_b );
+
+
+#endif /* hashtable_h */
 
 
 /**
@@ -238,6 +243,14 @@ Removes the item associated with the specified key, and the instance of the key 
 specified key could not be found, an assert is triggered.
 
 
+hashtable_clear
+---------------
+
+    void hashtable_clear( hashtable_t* table )
+
+Removes all the items stored in the hashtable, without deallocating any of the memory it has allocated.
+
+
 hashtable_find
 --------------
 
@@ -274,6 +287,15 @@ hashtable_keys
 Returns a pointer to the keys currently held in the table, in the same order as the items returned from 
 `hashtable_items`. Can be indexed as an array with as many elements as returned by `hashtable_count`.
 
+
+hashtable_swap
+--------------
+
+    void hashtable_swap( hashtable_t* table, int index_a, int index_b )
+
+Swaps the specified item/key pairs, and updates the hash lookup for both. Can be used to re-order the contents, as
+retrieved by calling `hashtable_items` and `hashtable_keys`, while keeping the hashing intact.
+
 */
 
 /*
@@ -309,6 +331,8 @@ struct hashtable_t
     int* items_slot;
     void* items_data;
     int item_capacity;
+
+    void* swap_temp;
     };
 
 #endif /* hashtable_t_h */
@@ -318,35 +342,45 @@ struct hashtable_t
 #undef HASHTABLE_IMPLEMENTATION
 
 #ifndef HASHTABLE_SIZE_T
+    #undef _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_NONSTDC_NO_DEPRECATE 
+    #undef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
     #include <stddef.h>
     #define HASHTABLE_SIZE_T size_t
 #endif
 
 #ifndef HASHTABLE_ASSERT
+    #undef _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_NONSTDC_NO_DEPRECATE 
+    #undef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
     #include <assert.h>
     #define HASHTABLE_ASSERT( x ) assert( x )
 #endif
 
 #ifndef HASHTABLE_MEMSET
+    #undef _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_NONSTDC_NO_DEPRECATE 
+    #undef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
     #include <string.h>
     #define HASHTABLE_MEMSET( ptr, val, cnt ) ( memset( ptr, val, cnt ) )
 #endif 
 
 #ifndef HASHTABLE_MEMCPY
+    #undef _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_NONSTDC_NO_DEPRECATE 
+    #undef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
     #include <string.h>
     #define HASHTABLE_MEMCPY( dst, src, cnt ) ( memcpy( dst, src, cnt ) )
 #endif 
 
 #ifndef HASHTABLE_MALLOC
+    #undef _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_NONSTDC_NO_DEPRECATE 
+    #undef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
     #include <stdlib.h>
     #define HASHTABLE_MALLOC( ctx, size ) ( malloc( size ) )
@@ -381,10 +415,11 @@ void hashtable_init( hashtable_t* table, int item_size, int initial_capacity, vo
     HASHTABLE_MEMSET( table->slots, 0, (HASHTABLE_SIZE_T) slots_size );
     table->item_capacity = (int) hashtable_internal_pow2ceil( (HASHTABLE_U32) initial_capacity );
     table->items_key = (HASHTABLE_U64*) HASHTABLE_MALLOC( table->memctx, 
-        table->item_capacity * ( sizeof( *table->items_key ) + sizeof( *table->items_slot ) + table->item_size ) );
+        table->item_capacity * ( sizeof( *table->items_key ) + sizeof( *table->items_slot ) + table->item_size ) + table->item_size );
     HASHTABLE_ASSERT( table->items_key );
     table->items_slot = (int*)( table->items_key + table->item_capacity );
     table->items_data = (void*)( table->items_slot + table->item_capacity );
+    table->swap_temp = (void*)( ( (uintptr_t) table->items_data ) + table->item_size * table->item_capacity ); 
     }
 
 
@@ -477,11 +512,12 @@ static void hashtable_internal_expand_items( hashtable_t* table )
     {
     table->item_capacity *= 2;
      HASHTABLE_U64* const new_items_key = (HASHTABLE_U64*) HASHTABLE_MALLOC( table->memctx, 
-         table->item_capacity * ( sizeof( *table->items_key ) + sizeof( *table->items_slot ) + table->item_size ) );
+         table->item_capacity * ( sizeof( *table->items_key ) + sizeof( *table->items_slot ) + table->item_size ) + table->item_size);
     HASHTABLE_ASSERT( new_items_key );
 
     int* const new_items_slot = (int*)( new_items_key + table->item_capacity );
     void* const new_items_data = (void*)( new_items_slot + table->item_capacity );
+    void* const new_swap_temp = (void*)( ( (uintptr_t) new_items_data ) + table->item_size * table->item_capacity ); 
 
     HASHTABLE_MEMCPY( new_items_key, table->items_key, table->count * sizeof( *table->items_key ) );
     HASHTABLE_MEMCPY( new_items_slot, table->items_slot, table->count * sizeof( *table->items_key ) );
@@ -492,6 +528,7 @@ static void hashtable_internal_expand_items( hashtable_t* table )
     table->items_key = new_items_key;
     table->items_slot = new_items_slot;
     table->items_data = new_items_data;
+    table->swap_temp = new_swap_temp;
     }
 
 
@@ -568,6 +605,13 @@ void hashtable_remove( hashtable_t* table, HASHTABLE_U64 key )
     } 
 
 
+void hashtable_clear( hashtable_t* table )
+    {
+    table->count = 0;
+    HASHTABLE_MEMSET( table->slots, 0, table->slot_capacity * sizeof( *table->slots ) );
+    }
+
+
 void* hashtable_find( hashtable_t const* table, HASHTABLE_U64 key )
     {
     int const slot = hashtable_internal_find_slot( table, key );
@@ -597,11 +641,42 @@ HASHTABLE_U64 const* hashtable_keys( hashtable_t const* table )
     }
 
 
+void hashtable_swap( hashtable_t* table, int index_a, int index_b )
+    {
+    if( index_a < 0 || index_a >= table->count || index_b < 0 || index_b >= table->count ) return;
+
+    int slot_a = table->items_slot[ index_a ];
+    int slot_b = table->items_slot[ index_b ];
+
+    table->items_slot[ index_a ] = slot_b;
+    table->items_slot[ index_b ] = slot_a;
+
+    HASHTABLE_U64 temp_key = table->items_key[ index_a ];
+    table->items_key[ index_a ] = table->items_key[ index_b ];
+    table->items_key[ index_b ] = temp_key;
+
+    void* item_a = (void*)( ( (uintptr_t) table->items_data ) + index_a * table->item_size );
+    void* item_b = (void*)( ( (uintptr_t) table->items_data ) + index_b * table->item_size );
+    HASHTABLE_MEMCPY( table->swap_temp, item_a, table->item_size );
+    HASHTABLE_MEMCPY( item_a, item_b, table->item_size );
+    HASHTABLE_MEMCPY( item_b, table->swap_temp, table->item_size );
+
+    table->slots[ slot_a ].item_index = index_b;
+    table->slots[ slot_b ].item_index = index_a;
+    }
+
+
 #endif /* HASHTABLE_IMPLEMENTATION */
 
 /*
+
+contributors:
+    Randy Gaul (hashtable_clear, hashtable_swap )
+
 revision history:
+    1.1     added hashtable_clear, hashtable_swap
     1.0     first released version  
+
 */
 
 /*
