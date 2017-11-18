@@ -9,7 +9,7 @@ Example
 
 ```cpp
 #define HASHTABLE_IMPLEMENTATION
-#include "libs/hashtable.h"
+#include "hashtable.h"
 
 #include <stdio.h> // for printf
 
@@ -209,6 +209,14 @@ Removes the item associated with the specified key, and the instance of the key 
 specified key could not be found, an assert is triggered.
 
 
+hashtable_clear
+---------------
+
+    void hashtable_clear( hashtable_t* table )
+
+Removes all the items stored in the hashtable, without deallocating any of the memory it has allocated.
+
+
 hashtable_find
 --------------
 
@@ -244,3 +252,13 @@ hashtable_keys
 
 Returns a pointer to the keys currently held in the table, in the same order as the items returned from 
 `hashtable_items`. Can be indexed as an array with as many elements as returned by `hashtable_count`.
+
+
+hashtable_swap
+--------------
+
+    void hashtable_swap( hashtable_t* table, int index_a, int index_b )
+
+Swaps the specified item/key pairs, and updates the hash lookup for both. Can be used to re-order the contents, as
+retrieved by calling `hashtable_items` and `hashtable_keys`, while keeping the hashing intact.
+

@@ -44,7 +44,7 @@ Example
 =======
 
     #define HASHTABLE_IMPLEMENTATION
-    #include "libs/hashtable.h"
+    #include "hashtable.h"
 
     #include <stdio.h> // for printf
 
