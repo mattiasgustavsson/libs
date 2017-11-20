@@ -96,7 +96,7 @@ Creating a new ini file
     #include <stdlib.h>
 
     int main()
-        {       
+        {
         ini_t* ini = ini_create();
         ini_property_add( ini, INI_GLOBAL_SECTION, "FirstSetting", "Test" );
         ini_property_add( ini, INI_GLOBAL_SECTION, "SecondSetting", "2" );
@@ -121,15 +121,15 @@ Creating a new ini file
 API Documentation
 =================
 
-ini.h is a small library for reading classic .ini files. It is a single-header library, and does not need any .lib files 
-or other binaries, or any build scripts. To use it, you just include ini.h to get the API declarations. To get the 
-definitions, you must include ini.h from *one* single C or C++ file, and #define the symbol `INI_IMPLEMENTATION` before 
-you do. 
+ini.h is a small library for reading classic .ini files. It is a single-header library, and does not need any .lib files
+or other binaries, or any build scripts. To use it, you just include ini.h to get the API declarations. To get the
+definitions, you must include ini.h from *one* single C or C++ file, and #define the symbol `INI_IMPLEMENTATION` before
+you do.
 
 
 Customization
 -------------
-There are a few different things in ini.h which are configurable by #defines. The customizations only affect the 
+There are a few different things in ini.h which are configurable by #defines. The customizations only affect the
 implementation, so will only need to be defined in the file where you have the #define INI_IMPLEMENTATION.
 
 Note that if all customizations are utilized, ini.h will include no external files whatsoever, which might be useful
@@ -138,8 +138,8 @@ if you need full control over what code is being built.
 
 ### Custom memory allocators
 
-To store the internal data structures, ini.h needs to do dynamic allocation by calling `malloc`. Programs might want to 
-keep track of allocations done, or use custom defined pools to allocate memory from. ini.h allows for specifying custom 
+To store the internal data structures, ini.h needs to do dynamic allocation by calling `malloc`. Programs might want to
+keep track of allocations done, or use custom defined pools to allocate memory from. ini.h allows for specifying custom
 memory allocation functions for `malloc` and `free`.
 This is done with the following code:
 
@@ -149,10 +149,10 @@ This is done with the following code:
     #include "ini.h"
 
 where `my_custom_malloc` and `my_custom_free` are your own memory allocation/deallocation functions. The `ctx` parameter
-is an optional parameter of type `void*`. When `ini_create` or `ini_load` is called, you can pass in a `memctx` 
-parameter, which can be a pointer to anything you like, and which will be passed through as the `ctx` parameter to every 
-`INI_MALLOC`/`INI_FREE` call. For example, if you are doing memory tracking, you can pass a pointer to your tracking 
-data as `memctx`, and in your custom allocation/deallocation function, you can cast the `ctx` param back to the 
+is an optional parameter of type `void*`. When `ini_create` or `ini_load` is called, you can pass in a `memctx`
+parameter, which can be a pointer to anything you like, and which will be passed through as the `ctx` parameter to every
+`INI_MALLOC`/`INI_FREE` call. For example, if you are doing memory tracking, you can pass a pointer to your tracking
+data as `memctx`, and in your custom allocation/deallocation function, you can cast the `ctx` param back to the
 right type, and access the tracking data.
 
 If no custom allocator is defined, ini.h will default to `malloc` and `free` from the C runtime library.
@@ -160,13 +160,13 @@ If no custom allocator is defined, ini.h will default to `malloc` and `free` fro
 
 ### Custom C runtime function
 
-The library makes use of three additional functions from the C runtime library, and for full flexibility, it allows you 
+The library makes use of three additional functions from the C runtime library, and for full flexibility, it allows you
 to substitute them for your own. Here's an example:
 
     #define INI_IMPLEMENTATION
     #define INI_MEMCPY( dst, src, cnt ) ( my_memcpy_func( dst, src, cnt ) )
     #define INI_STRLEN( s ) ( my_strlen_func( s ) )
-    #define INI_STRICMP( s1, s2 ) ( my_stricmp_func( s1, s2 ) )
+    #define INI_STRNICMP( s1, s2, cnt ) ( my_strnicmp_func( s1, s2, cnt ) )
     #include "ini.h"
 
 If no custom function is defined, ini.h will default to the C runtime library equivalent.
@@ -174,12 +174,12 @@ If no custom function is defined, ini.h will default to the C runtime library eq
 
 ini_create
 ----------
-    
+
     ini_t* ini_create( void* memctx )
 
 Instantiates a new, empty ini structure, which can be manipulated with other API calls, to fill it with data. To save it
 out to an ini-file string, use `ini_save`. When no longer needed, it can be destroyed by calling `ini_destroy`.
-`memctx` is a pointer to user defined data which will be passed through to the custom INI_MALLOC/INI_FREE calls. It can 
+`memctx` is a pointer to user defined data which will be passed through to the custom INI_MALLOC/INI_FREE calls. It can
 be NULL if no user defined data is needed.
 
 
@@ -188,20 +188,20 @@ ini_load
 
     ini_t* ini_load( char const* data, void* memctx )
 
-Parse the zero-terminated string `data` containing an ini-file, and create a new ini_t instance containing the data. 
-The instance can be manipulated with other API calls to enumerate sections/properties and retrieve values. When no 
-longer needed, it can be destroyed by calling `ini_destroy`. `memctx` is a pointer to user defined data which will be 
+Parse the zero-terminated string `data` containing an ini-file, and create a new ini_t instance containing the data.
+The instance can be manipulated with other API calls to enumerate sections/properties and retrieve values. When no
+longer needed, it can be destroyed by calling `ini_destroy`. `memctx` is a pointer to user defined data which will be
 passed through to the custom INI_MALLOC/INI_FREE calls. It can be NULL if no user defined data is needed.
 
 
 ini_save
 --------
-    
+
     int ini_save( ini_t const* ini, char* data, int size )
 
-Saves an ini structure as a zero-terminated ini-file string, into the specified buffer. Returns the number of bytes 
+Saves an ini structure as a zero-terminated ini-file string, into the specified buffer. Returns the number of bytes
 written, including the zero terminator. If `data` is NULL, nothing is written, but `ini_save` still returns the number
-of bytes it would have written. If the size of `data`, as specified in the `size` parameter, is smaller than that 
+of bytes it would have written. If the size of `data`, as specified in the `size` parameter, is smaller than that
 required, only part of the ini-file string will be written. `ini_save` still returns the number of bytes it would have
 written had the buffer been large enough.
 
@@ -220,7 +220,7 @@ ini_section_count
 
     int ini_section_count( ini_t const* ini )
 
-Returns the number of sections in an ini file. There's at least one section in an ini file (the global section), but 
+Returns the number of sections in an ini file. There's at least one section in an ini file (the global section), but
 there can be many more, each specified in the file by the section name wrapped in square brackets [ ].
 
 
@@ -229,7 +229,7 @@ ini_section_name
 
     char const* ini_section_name( ini_t const* ini, int section )
 
-Returns the name of the section with the specified index. `section` must be non-negative and less than the value 
+Returns the name of the section with the specified index. `section` must be non-negative and less than the value
 returned by `ini_section_count`, or `ini_section_name` will return NULL. The defined constant `INI_GLOBAL_SECTION` can
 be used to indicate the global section.
 
@@ -239,8 +239,8 @@ ini_property_count
 
     int ini_property_count( ini_t const* ini, int section )
 
-Returns the number of properties belonging to the section with the specified index. `section` must be non-negative and 
-less than the value returned by `ini_section_count`, or `ini_section_name` will return 0. The defined constant 
+Returns the number of properties belonging to the section with the specified index. `section` must be non-negative and
+less than the value returned by `ini_section_count`, or `ini_section_name` will return 0. The defined constant
 `INI_GLOBAL_SECTION` can be used to indicate the global section. Properties are declared in the ini-file on he format
 `name=value`.
 
@@ -251,8 +251,8 @@ ini_property_name
     char const* ini_property_name( ini_t const* ini, int section, int property )
 
 Returns the name of the property with the specified index `property` in the section with the specified index `section`.
-`section` must be non-negative and less than the value returned by `ini_section_count`, and `property` must be 
-non-negative and less than the value returned by `ini_property_count`, or `ini_property_name` will return NULL. The 
+`section` must be non-negative and less than the value returned by `ini_section_count`, and `property` must be
+non-negative and less than the value returned by `ini_property_count`, or `ini_property_name` will return NULL. The
 defined constant `INI_GLOBAL_SECTION` can be used to indicate the global section.
 
 
@@ -262,8 +262,8 @@ ini_property_value
     char const* ini_property_value( ini_t const* ini, int section, int property )
 
 Returns the value of the property with the specified index `property` in the section with the specified index `section`.
-`section` must be non-negative and less than the value returned by `ini_section_count`, and `property` must be 
-non-negative and less than the value returned by `ini_property_count`, or `ini_property_value` will return NULL. The 
+`section` must be non-negative and less than the value returned by `ini_section_count`, and `property` must be
+non-negative and less than the value returned by `ini_property_count`, or `ini_property_value` will return NULL. The
 defined constant `INI_GLOBAL_SECTION` can be used to indicate the global section.
 
 
@@ -283,11 +283,11 @@ ini_find_property
 
     int ini_find_property( ini_t const* ini, int section, char const* name, int name_length )
 
-Finds the property with the specified name, within the section with the specified index, and returns the index of the 
-property. `name_length` specifies the number of characters in `name`, which does not have to be zero-terminated. If 
-`name_length` is zero, the length is determined automatically, but in this case `name` has to be zero-terminated. If no 
+Finds the property with the specified name, within the section with the specified index, and returns the index of the
+property. `name_length` specifies the number of characters in `name`, which does not have to be zero-terminated. If
+`name_length` is zero, the length is determined automatically, but in this case `name` has to be zero-terminated. If no
 property with the specified name could be found within the specified section, the value `INI_NOT_FOUND` is  returned.
-`section` must be non-negative and less than the value returned by `ini_section_count`, or `ini_find_property` will 
+`section` must be non-negative and less than the value returned by `ini_section_count`, or `ini_find_property` will
 return `INI_NOT_FOUND`. The defined constant `INI_GLOBAL_SECTION` can be used to indicate the global section.
 
 
@@ -296,23 +296,23 @@ ini_section_add
 
     int ini_section_add( ini_t* ini, char const* name, int length )
 
-Adds a section with the specified name, and returns the index it was added at. There is no check done to see if a 
-section with the specified name already exists - multiple sections of the same name are allowed. `length` specifies the 
-number of characters in `name`, which does not have to be zero-terminated. If `length` is zero, the length is determined 
+Adds a section with the specified name, and returns the index it was added at. There is no check done to see if a
+section with the specified name already exists - multiple sections of the same name are allowed. `length` specifies the
+number of characters in `name`, which does not have to be zero-terminated. If `length` is zero, the length is determined
 automatically, but in this case `name` has to be zero-terminated.
 
 
 ini_property_add
 ----------------
-    
+
     void ini_property_add( ini_t* ini, int section, char const* name, int name_length, char const* value, int value_length )
 
-Adds a property with the specified name and value to the specified section, and returns the index it was added at. There 
-is no check done to see if a property with the specified name already exists - multiple properties of the same name are 
-allowed. `name_length` and `value_length` specifies the number of characters in `name` and `value`, which does not have 
-to be zero-terminated. If `name_length` or `value_length` is zero, the length is determined automatically, but in this 
+Adds a property with the specified name and value to the specified section, and returns the index it was added at. There
+is no check done to see if a property with the specified name already exists - multiple properties of the same name are
+allowed. `name_length` and `value_length` specifies the number of characters in `name` and `value`, which does not have
+to be zero-terminated. If `name_length` or `value_length` is zero, the length is determined automatically, but in this
 case `name`/`value` has to be zero-terminated. `section` must be non-negative and less than the value returned by
-`ini_section_count`, or the property will not be added. The defined constant `INI_GLOBAL_SECTION` can be used to 
+`ini_section_count`, or the property will not be added. The defined constant `INI_GLOBAL_SECTION` can be used to
 indicate the global section.
 
 
@@ -321,9 +321,9 @@ ini_section_remove
 
     void ini_section_remove( ini_t* ini, int section )
 
-Removes the section with the specified index, and all properties within it. `section` must be non-negative and less than 
-the value returned by `ini_section_count`. The defined constant `INI_GLOBAL_SECTION` can be used to indicate the global 
-section. Note that removing a section will shuffle section indices, so that section indices you may have stored will no 
+Removes the section with the specified index, and all properties within it. `section` must be non-negative and less than
+the value returned by `ini_section_count`. The defined constant `INI_GLOBAL_SECTION` can be used to indicate the global
+section. Note that removing a section will shuffle section indices, so that section indices you may have stored will no
 longer indicate the same section as it did before the remove. Use the find functions to update your indices.
 
 
@@ -332,11 +332,11 @@ ini_property_remove
 
     void ini_property_remove( ini_t* ini, int section, int property )
 
-Removes the property with the specified index from the specified section. `section` must be non-negative and less than 
-the value returned by `ini_section_count`, and `property` must be non-negative and less than the value returned by 
-`ini_property_count`. The defined constant `INI_GLOBAL_SECTION` can be used to indicate the global section. Note that 
-removing a property will shuffle property indices within the specified section, so that property indices you may have 
-stored will no longer indicate the same property as it did before the remove. Use the find functions to update your 
+Removes the property with the specified index from the specified section. `section` must be non-negative and less than
+the value returned by `ini_section_count`, and `property` must be non-negative and less than the value returned by
+`ini_property_count`. The defined constant `INI_GLOBAL_SECTION` can be used to indicate the global section. Note that
+removing a property will shuffle property indices within the specified section, so that property indices you may have
+stored will no longer indicate the same property as it did before the remove. Use the find functions to update your
 indices.
 
 
@@ -345,9 +345,9 @@ ini_section_name_set
 
     void ini_section_name_set( ini_t* ini, int section, char const* name, int length )
 
-Change the name of the section with the specified index. `section` must be non-negative and less than the value returned 
-by `ini_section_count`. The defined constant `INI_GLOBAL_SECTION` can be used to indicate the global section. `length` 
-specifies the number of characters in `name`, which does not have to be zero-terminated. If `length` is zero, the length 
+Change the name of the section with the specified index. `section` must be non-negative and less than the value returned
+by `ini_section_count`. The defined constant `INI_GLOBAL_SECTION` can be used to indicate the global section. `length`
+specifies the number of characters in `name`, which does not have to be zero-terminated. If `length` is zero, the length
 is determined automatically, but in this case `name` has to be zero-terminated.
 
 
@@ -356,10 +356,10 @@ ini_property_name_set
 
     void ini_property_name_set( ini_t* ini, int section, int property, char const* name, int length )
 
-Change the name of the property with the specified index in the specified section. `section` must be non-negative and 
-less than the value returned by `ini_section_count`, and `property` must be non-negative and less than the value 
+Change the name of the property with the specified index in the specified section. `section` must be non-negative and
+less than the value returned by `ini_section_count`, and `property` must be non-negative and less than the value
 returned by `ini_property_count`. The defined constant `INI_GLOBAL_SECTION` can be used to indicate the global section.
-`length` specifies the number of characters in `name`, which does not have to be zero-terminated. If `length` is zero, 
+`length` specifies the number of characters in `name`, which does not have to be zero-terminated. If `length` is zero,
 the length is determined automatically, but in this case `name` has to be zero-terminated.
 
 
@@ -368,10 +368,10 @@ ini_property_value_set
 
     void ini_property_value_set( ini_t* ini, int section, int property, char const* value, int length  )
 
-Change the value of the property with the specified index in the specified section. `section` must be non-negative and 
-less than the value returned by `ini_section_count`, and `property` must be non-negative and less than the value 
+Change the value of the property with the specified index in the specified section. `section` must be non-negative and
+less than the value returned by `ini_section_count`, and `property` must be non-negative and less than the value
 returned by `ini_property_count`. The defined constant `INI_GLOBAL_SECTION` can be used to indicate the global section.
-`length` specifies the number of characters in `value`, which does not have to be zero-terminated. If `length` is zero, 
+`length` specifies the number of characters in `value`, which does not have to be zero-terminated. If `length` is zero,
 the length is determined automatically, but in this case `value` has to be zero-terminated.
 
 **/
@@ -388,43 +388,41 @@ the length is determined automatically, but in this case `value` has to be zero-
 
 #define INITIAL_CAPACITY ( 256 )
 
-#define _CRT_NONSTDC_NO_DEPRECATE 
-#define _CRT_SECURE_NO_WARNINGS
+#ifndef _CRT_NONSTDC_NO_DEPRECATE
+    #define _CRT_NONSTDC_NO_DEPRECATE
+#endif
+
+#ifndef _CRT_SECURE_NO_WARNINGS
+    #define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <stddef.h>
 
 #ifndef INI_MALLOC
-    #define _CRT_NONSTDC_NO_DEPRECATE 
-    #define _CRT_SECURE_NO_WARNINGS
     #include <stdlib.h>
     #define INI_MALLOC( ctx, size ) ( malloc( size ) )
     #define INI_FREE( ctx, ptr ) ( free( ptr ) )
 #endif
 
 #ifndef INI_MEMCPY
-    #define _CRT_NONSTDC_NO_DEPRECATE 
-    #define _CRT_SECURE_NO_WARNINGS
     #include <string.h>
     #define INI_MEMCPY( dst, src, cnt ) ( memcpy( dst, src, cnt ) )
-#endif 
+#endif
 
 #ifndef INI_STRLEN
-    #define _CRT_NONSTDC_NO_DEPRECATE 
-    #define _CRT_SECURE_NO_WARNINGS
     #include <string.h>
     #define INI_STRLEN( s ) ( strlen( s ) )
-#endif 
+#endif
 
-#ifndef INI_STRICMP
+#ifndef INI_STRNICMP
     #ifdef _WIN32
-        #define _CRT_NONSTDC_NO_DEPRECATE 
-        #define _CRT_SECURE_NO_WARNINGS
         #include <string.h>
-        #define INI_STRICMP( s1, s2 ) ( stricmp( s1, s2 ) )
-    #else                           
-        #include <string.h>         
-        #define INI_STRICMP( s1, s2 ) ( strcasecmp( s1, s2 ) )        
+        #define INI_STRNICMP( s1, s2, cnt ) ( strnicmp( s1, s2, cnt ) )
+    #else
+        #include <string.h>
+        #define INI_STRNICMP( s1, s2, cnt ) ( strncasecmp( s1, s2, cnt ) )
     #endif
-#endif 
+#endif
 
 
 struct ini_internal_section_t
@@ -489,7 +487,7 @@ ini_t* ini_create( void* memctx )
     ini->sections = (struct ini_internal_section_t*) INI_MALLOC( ini->memctx, INITIAL_CAPACITY * sizeof( ini->sections[ 0 ] ) );
     ini->section_capacity = INITIAL_CAPACITY;
     ini->section_count = 1; /* global section */
-    ini->sections[ 0 ].name[ 0 ] = '\0'; 
+    ini->sections[ 0 ].name[ 0 ] = '\0';
     ini->sections[ 0 ].name_large = 0;
     ini->properties = (struct ini_internal_property_t*) INI_MALLOC( ini->memctx, INITIAL_CAPACITY * sizeof( ini->properties[ 0 ] ) );
     ini->property_capacity = INITIAL_CAPACITY;
@@ -518,7 +516,7 @@ ini_t* ini_load( char const* data, void* memctx )
             /* trim leading whitespace */
             while( *ptr && *ptr <=' ' )
                 ++ptr;
-            
+
             /* done? */
             if( !*ptr ) break;
 
@@ -553,19 +551,19 @@ ini_t* ini_load( char const* data, void* memctx )
                     {
                     l = (int)( ptr - start);
                     ++ptr;
-                    while( *ptr && *ptr <= ' ' && *ptr != '\n' ) 
+                    while( *ptr && *ptr <= ' ' && *ptr != '\n' )
                         ptr++;
                     start2 = ptr;
                     while( *ptr && *ptr != '\n' )
                         ++ptr;
-                    while( *(--ptr) <= ' ' ) 
+                    while( *(--ptr) <= ' ' )
                         (void)ptr;
                     ptr++;
                     ini_property_add( ini, s, start, l, start2, (int)( ptr - start2) );
                     }
                 }
             }
-        }   
+        }
 
     return ini;
     }
@@ -738,9 +736,9 @@ int ini_find_section( ini_t const* ini, char const* name, int name_length )
         if( name_length <= 0 ) name_length = (int) INI_STRLEN( name );
         for( i = 0; i < ini->section_count; ++i )
             {
-            char const* const other = 
+            char const* const other =
                 ini->sections[ i ].name_large ? ini->sections[ i ].name_large : ini->sections[ i ].name;
-            if( (int) INI_STRLEN( other ) == name_length && INI_STRICMP( name, other ) == 0 )
+            if( (int) INI_STRLEN( other ) == name_length && INI_STRNICMP( name, other, name_length ) == 0 )
                 return i;
             }
         }
@@ -762,9 +760,9 @@ int ini_find_property( ini_t const* ini, int section, char const* name, int name
             {
             if( ini->properties[ i ].section == section )
                 {
-                char const* const other = 
+                char const* const other =
                     ini->properties[ i ].name_large ? ini->properties[ i ].name_large : ini->properties[ i ].name;
-                if( (int) INI_STRLEN( other ) == name_length && INI_STRICMP( name, other ) == 0 )
+                if( (int) INI_STRLEN( other ) == name_length && INI_STRNICMP( name, other, name_length ) == 0 )
                     return c;
                 ++c;
                 }
@@ -778,14 +776,14 @@ int ini_find_property( ini_t const* ini, int section, char const* name, int name
 int ini_section_add( ini_t* ini, char const* name, int length )
     {
     struct ini_internal_section_t* new_sections;
-    
+
     if( ini && name )
         {
         if( length <= 0 ) length = (int) INI_STRLEN( name );
         if( ini->section_count >= ini->section_capacity )
             {
             ini->section_capacity *= 2;
-            new_sections = (struct ini_internal_section_t*) INI_MALLOC( ini->memctx, 
+            new_sections = (struct ini_internal_section_t*) INI_MALLOC( ini->memctx,
                 ini->section_capacity * sizeof( ini->sections[ 0 ] ) );
             INI_MEMCPY( new_sections, ini->sections, ini->section_count * sizeof( ini->sections[ 0 ] ) );
             INI_FREE( ini->memctx, ini->sections );
@@ -824,13 +822,13 @@ void ini_property_add( ini_t* ini, int section, char const* name, int name_lengt
             {
 
             ini->property_capacity *= 2;
-            new_properties = (struct ini_internal_property_t*) INI_MALLOC( ini->memctx, 
+            new_properties = (struct ini_internal_property_t*) INI_MALLOC( ini->memctx,
                 ini->property_capacity * sizeof( ini->properties[ 0 ] ) );
             INI_MEMCPY( new_properties, ini->properties, ini->property_count * sizeof( ini->properties[ 0 ] ) );
             INI_FREE( ini->memctx, ini->properties );
             ini->properties = new_properties;
             }
-        
+
         ini->properties[ ini->property_count ].section = section;
         ini->properties[ ini->property_count ].name_large = 0;
         ini->properties[ ini->property_count ].value_large = 0;
@@ -871,7 +869,7 @@ void ini_section_remove( ini_t* ini, int section )
     if( ini && section >= 0 && section < ini->section_count )
         {
         if( ini->sections[ section ].name_large ) INI_FREE( ini->memctx, ini->sections[ section ].name_large );
-        for( p = ini->property_count - 1; p >= 0; --p ) 
+        for( p = ini->property_count - 1; p >= 0; --p )
             {
             if( ini->properties[ p ].section == section )
                 {
@@ -882,8 +880,8 @@ void ini_section_remove( ini_t* ini, int section )
             }
 
         ini->sections[ section ] = ini->sections[ --ini->section_count  ];
-        
-        for( p = 0; p < ini->property_count; ++p ) 
+
+        for( p = 0; p < ini->property_count; ++p )
             {
             if( ini->properties[ p ].section == ini->section_count )
                 ini->properties[ p ].section = section;
@@ -917,7 +915,7 @@ void ini_section_name_set( ini_t* ini, int section, char const* name, int length
         if( length <= 0 ) length = (int) INI_STRLEN( name );
         if( ini->sections[ section ].name_large ) INI_FREE( ini->memctx, ini->sections[ section ].name_large );
         ini->sections[ section ].name_large = 0;
-        
+
         if( length + 1 >= sizeof( ini->sections[ 0 ].name ) )
             {
             ini->sections[ section ].name_large = (char*) INI_MALLOC( ini->memctx, (size_t) length + 1 );
@@ -996,7 +994,7 @@ void ini_property_value_set( ini_t* ini, int section, int property, char const* 
 /*
 revision history:
     1.1     customization, added documentation, cleanup
-    1.0     first publicly released version 
+    1.0     first publicly released version
 */
 
 /*
@@ -1010,22 +1008,22 @@ ALTERNATIVE A - MIT License
 
 Copyright (c) 2015 Mattias Gustavsson
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-of the Software, and to permit persons to whom the Software is furnished to do 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
 so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
@@ -1034,22 +1032,22 @@ ALTERNATIVE B - Public Domain (www.unlicense.org)
 
 This is free and unencumbered software released into the public domain.
 
-Anyone is free to copy, modify, publish, use, compile, sell, or distribute this 
-software, either in source code form or as a compiled binary, for any purpose, 
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute this
+software, either in source code form or as a compiled binary, for any purpose,
 commercial or non-commercial, and by any means.
 
-In jurisdictions that recognize copyright laws, the author or authors of this 
-software dedicate any and all copyright interest in the software to the public 
-domain. We make this dedication for the benefit of the public at large and to 
-the detriment of our heirs and successors. We intend this dedication to be an 
-overt act of relinquishment in perpetuity of all present and future rights to 
+In jurisdictions that recognize copyright laws, the author or authors of this
+software dedicate any and all copyright interest in the software to the public
+domain. We make this dedication for the benefit of the public at large and to
+the detriment of our heirs and successors. We intend this dedication to be an
+overt act of relinquishment in perpetuity of all present and future rights to
 this software under copyright law.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN 
-ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
