@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-assetsys.h - v1.0 - File system abstraction to read from zip-files, for C/C++.
+assetsys.h - v1.1 - File system abstraction to read from zip-files, for C/C++.
 
 Do this:
     #define ASSETSYS_IMPLEMENTATION
