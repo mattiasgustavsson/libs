@@ -35,6 +35,7 @@ typedef enum assetsys_error_t
     ASSETSYS_ERROR_FILE_NOT_FOUND = -6,
     ASSETSYS_ERROR_DIR_NOT_FOUND = -7, 
     ASSETSYS_ERROR_INVALID_PARAMETER = -8,
+    ASSETSYS_ERROR_BUFFER_TOO_SMALL = -9,
     } assetsys_error_t;
 
 typedef struct assetsys_t assetsys_t;
@@ -48,7 +49,7 @@ assetsys_error_t assetsys_dismount( assetsys_t* sys, char const* path, char cons
 typedef struct assetsys_file_t { ASSETSYS_U64 mount; ASSETSYS_U64 path; int index; } assetsys_file_t;
 
 assetsys_error_t assetsys_file( assetsys_t* sys, char const* path, assetsys_file_t* file );
-assetsys_error_t assetsys_file_load( assetsys_t* sys, assetsys_file_t file, void* buffer );
+assetsys_error_t assetsys_file_load( assetsys_t* sys, assetsys_file_t file, int* size, void* buffer, int capacity );
 int assetsys_file_size( assetsys_t* sys, assetsys_file_t file );
 
 int assetsys_file_count( assetsys_t* sys, char const* path );
@@ -67,7 +68,7 @@ Example
 =======
 
     #define ASSETSYS_IMPLEMENTATION
-    #include "libs/assetsys.h"                                                                                                                                                           
+    #include "libs/assetsys.h"
 
     #include <stdio.h> // for printf
 
@@ -108,7 +109,8 @@ Example
         assetsys_file( assetsys, "/data/readme.txt", &file );
         int size = assetsys_file_size( assetsys, file );
         char* content = (char*) malloc( size + 1 ); // extra space for '\0'
-        assetsys_file_load( assetsys, file, content );
+        int loaded_size = 0;
+        assetsys_file_load( assetsys, file, &loaded_size, content, size );
         content[ size ] = '\0'; // zero terminate the text file
         printf( "%s\n", content );
         free( content );
@@ -273,12 +275,16 @@ handle is only valid until any mounts are modified by calling `assetsys_mount` o
 assetsys_file_load
 ------------------
 
-    assetsys_error_t assetsys_file_load( assetsys_t* sys, assetsys_file_t file, void* buffer )
+    assetsys_error_t assetsys_file_load( assetsys_t* sys, assetsys_file_t file, int* size, void* buffer, int capacity )
 
 Load the data from the file specified by the handle `file` (initialized by calling `assetsys_file`) and writes it into
-the memory indicated by `buffer`. This memory buffer must be large enough to fit the entire file. To find out how large
-the buffer needs to be, call `assetsys_file_size`. If the file could not be loaded, `assetsys_file_load` returns
-`ASSETSYS_ERROR_FAILED_TO_READ_FILE`.
+the memory indicated by `buffer`. This memory buffer must be large enough to fit the entire file, and the `capacity`
+parameter must indicate its size. To find out how large the buffer needs to be, call `assetsys_file_size`. The size of
+the file will also be reported in the `size` parameter, unless it is passed in as NULL. Note that the two sizes can be
+reported with different values if the file was updated on disk between the call to `assetsys_file_size` and the call to
+`assetsys_file_load`. 
+If the file could not be loaded, `assetsys_file_load` returns `ASSETSYS_ERROR_FAILED_TO_READ_FILE`. If the `capacity`
+parameter is too small to hold the file data, `assetsys_file_load` returns `ASSETSYS_ERROR_BUFFER_TOO_SMALL`.
 
 
 assetsys_file_size
@@ -287,7 +293,9 @@ assetsys_file_size
     int assetsys_file_size( assetsys_t* sys, assetsys_file_t file )
 
 Returns the size, in bytes, of the file specified by the handle `file` (initialized by calling `assetsys_file`). If the
-file handle is not valid, `assetsys_file_size` returns 0.
+file handle is not valid, `assetsys_file_size` returns 0. If the file is found in a directory mount, the size will be
+re-queried on each call to `assetsys_file_size` (to support the case where a file have been re-saved to disk since the
+last call). In the case where the file resides in an archive mount, `assetsys_file_size` will return its initial value.
 
 
 assetsys_file_count
@@ -378,10 +386,11 @@ path. If the path is invalid or index is out of range, `assetsys_subdir_path` re
 #endif /* ASSETSYS_ASSERT */
 
 #pragma warning( push )
+#pragma warning( disable: 4619 ) // pragma warning : there is no warning number 'number'
 #pragma warning( disable: 4244 ) // 'conversion' conversion from 'type1' to 'type2', possible loss of data
 #pragma warning( disable: 4365 ) // 'action' conversion from 'type_1' to 'type_2', signed/unsigned mismatch
 #pragma warning( disable: 4548 ) // expression before comma has no effect; expected expression with side-effect
-#pragma warning( disable: 4668 ) // not defined as a preprocessor macro, replacing with '0' for '#if/#elif'
+#pragma warning( disable: 4668 ) // 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
 
 /*
 ------------------------------------------------------------------------------
@@ -5364,8 +5373,8 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
     // 0x0601=Windows 7, 0x0602=Windows 8, 0x0603=Windows 8.1, 0x0A00=Windows 10, 
     #define _WINSOCKAPI_
     #pragma warning( push )
-    #pragma warning( disable: 4668 )
-    #pragma warning( disable: 4255 )
+    #pragma warning( disable: 4668 ) // 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
+    #pragma warning( disable: 4255 ) // 'function' : no function prototype given: converting '()' to '(void)'
     #include <windows.h>
     #pragma warning( pop )
 
@@ -6112,7 +6121,7 @@ static int assetsys_internal_find_mount_index( assetsys_t* sys, ASSETSYS_U64 con
     }
 
 
-assetsys_error_t assetsys_file_load( assetsys_t* sys, assetsys_file_t f, void* buffer )
+assetsys_error_t assetsys_file_load( assetsys_t* sys, assetsys_file_t f, int* size, void* buffer, int capacity )
     {
     int mount_index = assetsys_internal_find_mount_index( sys, f.mount, f.path );
     if( mount_index < 0 ) return ASSETSYS_ERROR_INVALID_MOUNT;
@@ -6121,21 +6130,34 @@ assetsys_error_t assetsys_file_load( assetsys_t* sys, assetsys_file_t f, void* b
     struct assetsys_internal_file_t* file = &mount->files[ f.index ];
     if( mount->type == ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP )
         {
+        if( size ) *size = (int) file->size;
+        if( file->size > capacity ) return ASSETSYS_ERROR_BUFFER_TOO_SMALL;
+
         mz_bool result = mz_zip_reader_extract_to_mem_no_alloc( &mount->zip, (mz_uint) file->zip_index, buffer, 
             (size_t) file->size, 0, 0, 0 ); 
         return result ? ASSETSYS_SUCCESS : ASSETSYS_ERROR_FAILED_TO_READ_FILE;
         }
     else
         {
+        if( size ) *size = file->size;
         strcpy( sys->temp, assetsys_internal_get_string( sys, mount->path ) );
         strcat( sys->temp, *sys->temp == '\0' ? "" : "/" );
         strcat( sys->temp, assetsys_internal_get_string( sys, 
             sys->collated[ file->collated_index ].path ) + mount->mount_len + 1 );
         FILE* fp = fopen( sys->temp, "rb" );
         if( !fp ) return ASSETSYS_ERROR_FAILED_TO_READ_FILE;
-        int size = (int) fread( buffer, 1, (size_t) file->size, fp );
+        
+        fseek( fp, 0, SEEK_END );
+        int file_size = (int) ftell( fp );
+        fseek( fp, 0, SEEK_SET );
+        if( size ) *size = file_size;
+
+        if( file_size > capacity ) { fclose( fp ); return ASSETSYS_ERROR_BUFFER_TOO_SMALL; }
+
+        int size_read = (int) fread( buffer, 1, (size_t) file_size, fp );
         fclose( fp );
-        if( size != file->size ) return ASSETSYS_ERROR_FAILED_TO_READ_FILE;
+        if( size_read != file_size ) return ASSETSYS_ERROR_FAILED_TO_READ_FILE;
+
         return ASSETSYS_SUCCESS;
         }
     }
@@ -6147,6 +6169,17 @@ int assetsys_file_size( assetsys_t* sys, assetsys_file_t file )
     if( mount_index < 0 ) return 0;
 
     struct assetsys_internal_mount_t* mount = &sys->mounts[ mount_index ];
+    if( mount->type == ASSETSYS_INTERNAL_MOUNT_TYPE_DIR )
+        {
+        strcpy( sys->temp, assetsys_internal_get_string( sys, mount->path ) );
+        strcat( sys->temp, *sys->temp == '\0' ? "" : "/" );
+        strcat( sys->temp, assetsys_internal_get_string( sys, 
+            sys->collated[ mount->files[ file.index ].collated_index ].path ) + mount->mount_len + 1 );
+        struct stat s;
+        if( stat( sys->temp, &s ) == 0 )
+            mount->files[ file.index ].size = (int) s.st_size;
+        }
+        
     return mount->files[ file.index ].size;
     }
 
@@ -6280,8 +6313,14 @@ static char* assetsys_internal_dirname( char const* path )
 
 
 /*
+
+contributors:
+    Randy Gaul (hotloading support)
+
 revision history:
+    1.1     changes to support loading assets being re-saved during execution
     1.0     first released version  
+
 */
 
 
