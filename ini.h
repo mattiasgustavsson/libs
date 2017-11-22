@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-ini.h - v1.1 - Simple ini-file reader for C/C++.
+ini.h - v1.2 - Simple ini-file reader for C/C++.
 
 Do this:
     #define INI_IMPLEMENTATION
