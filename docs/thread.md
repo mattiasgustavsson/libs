@@ -16,50 +16,50 @@ Here's a basic sample program which starts a second thread which just waits and 
 #include <stdio.h> // for printf
 
 int thread_proc( void* user_data)
-	{
-	thread_timer_t timer;
-	thread_timer_init( &timer );
+    {
+    thread_timer_t timer;
+    thread_timer_init( &timer );
 
-	int count = 0;
-	thread_atomic_int_t* exit_flag = (thread_atomic_int_t*) user_data;
-	while( thread_atomic_int_load( exit_flag ) == 0 )
-		{
-		printf( "Thread... " );
-		thread_timer_wait( &timer, 1000000000 ); // sleep for a second
-		++count;
-		}
+    int count = 0;
+    thread_atomic_int_t* exit_flag = (thread_atomic_int_t*) user_data;
+    while( thread_atomic_int_load( exit_flag ) == 0 )
+        {
+        printf( "Thread... " );
+        thread_timer_wait( &timer, 1000000000 ); // sleep for a second
+        ++count;
+        }
 
-	thread_timer_term( &timer );
-	printf( "Done\n" );
-	return count;
-	}
+    thread_timer_term( &timer );
+    printf( "Done\n" );
+    return count;
+    }
 
 int main( int argc, char** argv )
-	{
-	(void) argc, argv;
-	
-	thread_atomic_int_t exit_flag;
-	thread_atomic_int_store( &exit_flag, 0 );
+    {
+    (void) argc, argv;
+    
+    thread_atomic_int_t exit_flag;
+    thread_atomic_int_store( &exit_flag, 0 );
 
-	thread_ptr_t thread = thread_create( thread_proc, &exit_flag, "Example thread", THREAD_STACK_SIZE_DEFAULT );
+    thread_ptr_t thread = thread_create( thread_proc, &exit_flag, "Example thread", THREAD_STACK_SIZE_DEFAULT );
 
-	thread_timer_t timer;
-	thread_timer_init( &timer );
-	for( int i = 0; i < 5; ++i )
-		{
-		printf( "Main... " );
-		thread_timer_wait( &timer, 2000000000 ); // sleep for two seconds
-		}
-	thread_timer_term( &timer );
-	
-	thread_atomic_int_store( &exit_flag, 1 ); // signal thread to exit
-	int retval = thread_join( thread );
+    thread_timer_t timer;
+    thread_timer_init( &timer );
+    for( int i = 0; i < 5; ++i )
+        {
+        printf( "Main... " );
+        thread_timer_wait( &timer, 2000000000 ); // sleep for two seconds
+        }
+    thread_timer_term( &timer );
+    
+    thread_atomic_int_store( &exit_flag, 1 ); // signal thread to exit
+    int retval = thread_join( thread );
 
-	printf( "Count: %d\n", retval );
+    printf( "Count: %d\n", retval );
 
-	thread_destroy( thread );
-	return retval;
-	}
+    thread_destroy( thread );
+    return retval;
+    }
 ```
 
 
@@ -102,6 +102,18 @@ thread_yield
 Makes the calling thread yield execution to another thread. The operating system controls which thread is switched to.
 
 
+thread_set_high_priority
+------------------------
+
+    void thread_set_high_priority( void )
+
+When created, threads are set to run at normal priority. In some rare cases, such as a sound buffer update loop, it can
+be necessary to have one thread of your application run on a higher priority than the rest. Calling 
+`thread_set_high_priority` will raise the priority of the calling thread, giving it a chance to be run more often.
+Do not increase the priority of a thread unless you absolutely have to, as it can negatively affect performance if used
+without care.
+
+
 thread_exit
 -----------
 
@@ -120,7 +132,7 @@ given the debug name given in the `name` parameter, if supported on the platform
 specified in the `stack_size` parameter. To get the operating system default stack size, use the defined constant
 `THREAD_STACK_SIZE_DEFAULT`. When returning from the thread_proc function, the value you return can be received in
 another thread by calling thread_join. `thread_create` returns a pointer to the thread instance, which can be used 
-as a parameter to the functions `thread_destroy`, `thread_join` and `thread_set_high_priority`.
+as a parameter to the functions `thread_destroy` and `thread_join`.
 
 
 thread_destroy
@@ -139,18 +151,6 @@ thread_join
     int thread_join( thread_ptr_t thread )
 
 Waits for the specified thread to exit. Returns the value which the thread returned when exiting.
-
-
-thread_set_high_priority
-------------------------
-
-    void thread_set_high_priority( thread_ptr_t thread )
-
-When created, threads are set to run at normal priority. In some rare cases, such as a sound buffer update loop, it can
-be necessary to have one thread of your application run on a higher priority than the rest. Calling 
-`thread_set_high_priority` will raise the priority of the specified thread, giving it a chance to be run more often.
-Do not increase the priority of a thread unless you absolutely have to, as it can negatively affect performance if used
-without care.
 
 
 thread_mutex_init
@@ -219,8 +219,8 @@ thread_signal_wait
     int thread_signal_wait( thread_signal_t* signal, int timeout_ms )
 
 Waits for a signal to be raised, or until `timeout_ms` milliseconds have passed. If the wait timed out, a value of 0 is
-returned, otherwise a non-zero value is returned. If the `timeout_ms` parameter is 0, `thread_signal_wait` waits 
-indefinitely.
+returned, otherwise a non-zero value is returned. If the `timeout_ms` parameter is THREAD_SIGNAL_WAIT_INFINITE, 
+`thread_signal_wait` waits indefinitely.
 
 
 thread_atomic_int_load
@@ -406,21 +406,25 @@ Terminates the specified queue instance, releasing any system resources held by 
 thread_queue_produce
 --------------------
 
-    void thread_queue_produce( thread_queue_t* queue, void* value )
+    int thread_queue_produce( thread_queue_t* queue, void* value, int timeout_ms )
 
 Adds an element to a single-producer/single-consumer queue. If there is space in the queue to add another element, no
 lock will be taken. If the queue is full, calling thread will sleep until an element is consumed from another thread, 
-before adding the element and returning.
+before adding the element, or until `timeout_ms` milliseconds have passed. If the wait timed out, a value of 0 is 
+returned, otherwise a non-zero value is returned. If the `timeout_ms` parameter is THREAD_QUEUE_WAIT_INFINITE,  
+`thread_queue_produce` waits indefinitely.
 
 
 thread_queue_consume
 --------------------
 
-    void* thread_queue_consume( thread_queue_t* queue )
+    void* thread_queue_consume( thread_queue_t* queue, int timeout_ms )
 
 Removes an element from a single-producer/single-consumer queue. If the queue contains at least one element, no lock 
-will be taken. If the queue is empty, the calling thread will sleep until an element is added from another thread, 
-before returning. `thread_queue_consume` returns the value that was removed from the queue.
+will be taken. If the queue is empty, the calling thread will sleep until an element is added from another thread, or 
+until `timeout_ms` milliseconds have passed. If the wait timed out, a value of NULL is returned, otherwise 
+`thread_queue_consume` returns the value that was removed from the queue. If the `timeout_ms` parameter is 
+THREAD_QUEUE_WAIT_INFINITE, `thread_queue_consume` waits indefinitely.
 
 
 thread_queue_count

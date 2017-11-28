@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-thread.h - v0.2 - Cross platform threading functions for C/C++.
+thread.h - v0.3 - Cross platform threading functions for C/C++.
 
 Do this:
     #define THREAD_IMPLEMENTATION
@@ -19,17 +19,18 @@ before you include this file in *one* C/C++ file to create the implementation.
 
 #define THREAD_STACK_SIZE_DEFAULT ( 0 )
 #define THREAD_SIGNAL_WAIT_INFINITE ( -1 )
+#define THREAD_QUEUE_WAIT_INFINITE ( -1 )
 
 typedef void* thread_id_t;
 thread_id_t thread_current_thread_id( void );
 void thread_yield( void );
+void thread_set_high_priority( void );
 void thread_exit( int return_code );
 
 typedef void* thread_ptr_t;
 thread_ptr_t thread_create( int (*thread_proc)( void* ), void* user_data, char const* name, int stack_size );
 void thread_destroy( thread_ptr_t thread );
 int thread_join( thread_ptr_t thread );
-void thread_set_high_priority( thread_ptr_t thread );
 
 typedef union thread_mutex_t thread_mutex_t;
 void thread_mutex_init( thread_mutex_t* mutex );
@@ -73,8 +74,8 @@ void* thread_tls_get( thread_tls_t tls );
 typedef struct thread_queue_t thread_queue_t;
 void thread_queue_init( thread_queue_t* queue, int size, void** values, int count );
 void thread_queue_term( thread_queue_t* queue );
-void thread_queue_produce( thread_queue_t* queue, void* value );
-void* thread_queue_consume( thread_queue_t* queue );
+int thread_queue_produce( thread_queue_t* queue, void* value, int timeout_ms );
+void* thread_queue_consume( thread_queue_t* queue, int timeout_ms );
 int thread_queue_count( thread_queue_t* queue );
 
 #endif /* thread_h */
@@ -178,6 +179,18 @@ thread_yield
 Makes the calling thread yield execution to another thread. The operating system controls which thread is switched to.
 
 
+thread_set_high_priority
+------------------------
+
+    void thread_set_high_priority( void )
+
+When created, threads are set to run at normal priority. In some rare cases, such as a sound buffer update loop, it can
+be necessary to have one thread of your application run on a higher priority than the rest. Calling 
+`thread_set_high_priority` will raise the priority of the calling thread, giving it a chance to be run more often.
+Do not increase the priority of a thread unless you absolutely have to, as it can negatively affect performance if used
+without care.
+
+
 thread_exit
 -----------
 
@@ -196,7 +209,7 @@ given the debug name given in the `name` parameter, if supported on the platform
 specified in the `stack_size` parameter. To get the operating system default stack size, use the defined constant
 `THREAD_STACK_SIZE_DEFAULT`. When returning from the thread_proc function, the value you return can be received in
 another thread by calling thread_join. `thread_create` returns a pointer to the thread instance, which can be used 
-as a parameter to the functions `thread_destroy`, `thread_join` and `thread_set_high_priority`.
+as a parameter to the functions `thread_destroy` and `thread_join`.
 
 
 thread_destroy
@@ -215,18 +228,6 @@ thread_join
     int thread_join( thread_ptr_t thread )
 
 Waits for the specified thread to exit. Returns the value which the thread returned when exiting.
-
-
-thread_set_high_priority
-------------------------
-
-    void thread_set_high_priority( thread_ptr_t thread )
-
-When created, threads are set to run at normal priority. In some rare cases, such as a sound buffer update loop, it can
-be necessary to have one thread of your application run on a higher priority than the rest. Calling 
-`thread_set_high_priority` will raise the priority of the specified thread, giving it a chance to be run more often.
-Do not increase the priority of a thread unless you absolutely have to, as it can negatively affect performance if used
-without care.
 
 
 thread_mutex_init
@@ -295,8 +296,8 @@ thread_signal_wait
     int thread_signal_wait( thread_signal_t* signal, int timeout_ms )
 
 Waits for a signal to be raised, or until `timeout_ms` milliseconds have passed. If the wait timed out, a value of 0 is
-returned, otherwise a non-zero value is returned. If the `timeout_ms` parameter is 0, `thread_signal_wait` waits 
-indefinitely.
+returned, otherwise a non-zero value is returned. If the `timeout_ms` parameter is THREAD_SIGNAL_WAIT_INFINITE, 
+`thread_signal_wait` waits indefinitely.
 
 
 thread_atomic_int_load
@@ -482,21 +483,25 @@ Terminates the specified queue instance, releasing any system resources held by 
 thread_queue_produce
 --------------------
 
-    void thread_queue_produce( thread_queue_t* queue, void* value )
+    int thread_queue_produce( thread_queue_t* queue, void* value, int timeout_ms )
 
 Adds an element to a single-producer/single-consumer queue. If there is space in the queue to add another element, no
 lock will be taken. If the queue is full, calling thread will sleep until an element is consumed from another thread, 
-before adding the element and returning.
+before adding the element, or until `timeout_ms` milliseconds have passed. If the wait timed out, a value of 0 is 
+returned, otherwise a non-zero value is returned. If the `timeout_ms` parameter is THREAD_QUEUE_WAIT_INFINITE,  
+`thread_queue_produce` waits indefinitely.
 
 
 thread_queue_consume
 --------------------
 
-    void* thread_queue_consume( thread_queue_t* queue )
+    void* thread_queue_consume( thread_queue_t* queue, int timeout_ms )
 
 Removes an element from a single-producer/single-consumer queue. If the queue contains at least one element, no lock 
-will be taken. If the queue is empty, the calling thread will sleep until an element is added from another thread, 
-before returning. `thread_queue_consume` returns the value that was removed from the queue.
+will be taken. If the queue is empty, the calling thread will sleep until an element is added from another thread, or 
+until `timeout_ms` milliseconds have passed. If the wait timed out, a value of NULL is returned, otherwise 
+`thread_queue_consume` returns the value that was removed from the queue. If the `timeout_ms` parameter is 
+THREAD_QUEUE_WAIT_INFINITE, `thread_queue_consume` waits indefinitely.
 
 
 thread_queue_count
@@ -534,24 +539,18 @@ union thread_signal_t
 union thread_atomic_int_t 
     {
     void* align;
-    long volatile i;
+    long i;
     };
 
 union thread_atomic_ptr_t 
     {
-    void* volatile ptr;
+    void* ptr;
     };
 
 union thread_timer_t 
     { 
     void* data; 
     char d[ 8 ]; 
-    };
-
-struct thread_once_t 
-    { 
-    void* align;
-    char data[ 16 ]; 
     };
 
 struct thread_queue_t
@@ -581,6 +580,8 @@ struct thread_queue_t
 
 #if defined( _WIN32 )
 
+    #pragma comment( lib, "winmm.lib" )
+
     #define _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_SECURE_NO_WARNINGS
 
@@ -591,7 +592,7 @@ struct thread_queue_t
 
     #define _WINSOCKAPI_
     #pragma warning( push )
-    #pragma warning( disable: 4668 )
+    #pragma warning( disable: 4668 ) // 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
     #pragma warning( disable: 4255 )
     #include <windows.h>
     #pragma warning( pop )
@@ -756,11 +757,11 @@ int thread_join( thread_ptr_t thread )
     }
 
 
-void thread_set_high_priority( thread_ptr_t thread )
+void thread_set_high_priority( void )
     {
     #if defined( _WIN32 )
 
-        SetThreadPriority( (HANDLE) thread, THREAD_PRIORITY_HIGHEST );
+        SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_HIGHEST );
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
@@ -780,7 +781,10 @@ void thread_mutex_init( thread_mutex_t* mutex )
     #if defined( _WIN32 )
 
         // Compile-time size check
+        #pragma warning( push )
+        #pragma warning( disable: 4214 ) // nonstandard extension used: bit field types other than int
         struct x { char thread_mutex_type_too_small : ( sizeof( thread_mutex_t ) < sizeof( CRITICAL_SECTION ) ? 0 : 1 ); }; 
+        #pragma warning( pop )
 
         InitializeCriticalSectionAndSpinCount( (CRITICAL_SECTION*) mutex, 32 );
     
@@ -872,9 +876,12 @@ struct thread_internal_signal_t
 void thread_signal_init( thread_signal_t* signal )
     {
     // Compile-time size check
-    struct x { char thread_signal_type_too_small : ( sizeof( thread_signal_t ) < sizeof( thread_internal_signal_t ) ? 0 : 1 ); };
+    #pragma warning( push )
+    #pragma warning( disable: 4214 ) // nonstandard extension used: bit field types other than int
+    struct x { char thread_signal_type_too_small : ( sizeof( thread_signal_t ) < sizeof( struct thread_internal_signal_t ) ? 0 : 1 ); };
+    #pragma warning( pop )
     
-    thread_internal_signal_t* internal = (thread_internal_signal_t*) signal;
+    struct thread_internal_signal_t* internal = (struct thread_internal_signal_t*) signal;
         
     #if defined( _WIN32 )
 
@@ -900,7 +907,7 @@ void thread_signal_init( thread_signal_t* signal )
 
  void thread_signal_term( thread_signal_t* signal )
     {
-    thread_internal_signal_t* internal = (thread_internal_signal_t*) signal;
+    struct thread_internal_signal_t* internal = (struct thread_internal_signal_t*) signal;
 
     #if defined( _WIN32 )
 
@@ -923,7 +930,7 @@ void thread_signal_init( thread_signal_t* signal )
 
 void thread_signal_raise( thread_signal_t* signal )
     {
-    thread_internal_signal_t* internal = (thread_internal_signal_t*) signal;
+    struct thread_internal_signal_t* internal = (struct thread_internal_signal_t*) signal;
 
     #if defined( _WIN32 )
 
@@ -951,20 +958,21 @@ void thread_signal_raise( thread_signal_t* signal )
 
 int thread_signal_wait( thread_signal_t* signal, int timeout_ms )
     {
-    thread_internal_signal_t* internal = (thread_internal_signal_t*) signal;
+    struct thread_internal_signal_t* internal = (struct thread_internal_signal_t*) signal;
 
     #if defined( _WIN32 )
 
         #if _WIN32_WINNT >= 0x0600
-            int failed = 0;
+            int timed_out = 0;
             EnterCriticalSection( &internal->mutex );
-            while( !internal->value && !failed )
+            while( internal->value == 0 )
                 {
-                failed = ( 0 == SleepConditionVariableCS( &internal->condition, &internal->mutex, timeout_ms < 0 ? INFINITE : timeout_ms ) );
+                int res = SleepConditionVariableCS( &internal->condition, &internal->mutex, timeout_ms < 0 ? INFINITE : timeout_ms );
+                if( !res && GetLastError() == ERROR_TIMEOUT ) { timed_out = 1; break; }
                 }
-            if( !failed ) internal->value = 0;
+            if( !timed_out ) internal->value = 0;
             LeaveCriticalSection( &internal->mutex );       
-            return !failed;
+            return !timed_out;
         #else 
             int failed = WAIT_OBJECT_0 != WaitForSingleObject( internal->event, timeout_ms < 0 ? INFINITE : timeout_ms );
             return !failed;
@@ -983,18 +991,22 @@ int thread_signal_wait( thread_signal_t* signal, int timeout_ms )
             ts.tv_nsec %= ( 1000 * 1000 * 1000 );
             }
 
-        int failed = 0;
+        int timed_out = 0;
         pthread_mutex_lock( &internal->mutex );
-        while( !internal->value && !failed )
+        while( internal->value == 0 )
             {
             if( timeout_ms < 0 ) 
-                failed = pthread_cond_wait( &internal->condition, &internal->mutex );
-            else
-                failed = pthread_cond_timedwait( &internal->condition, &internal->mutex, &ts );
+                pthread_cond_wait( &internal->condition, &internal->mutex );
+            else if( pthread_cond_timedwait( &internal->condition, &internal->mutex, &ts ) == ETIMEDOUT )
+                {
+                timed_out = 1;
+                break;
+                }
+
             }           
-        if( !failed ) internal->value = 0;
+        if( !timed_out ) internal->value = 0;
         pthread_mutex_unlock( &internal->mutex );
-        return !failed;
+        return !timed_out;
     
     #else 
         #error Unknown platform.
@@ -1071,7 +1083,7 @@ int thread_atomic_int_add( thread_atomic_int_t* atomic, int value )
     {
     #if defined( _WIN32 )
     
-        return InterlockedAdd( &atomic->i, value ) - value;
+        return InterlockedExchangeAdd ( &atomic->i, value );
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
@@ -1087,7 +1099,7 @@ int thread_atomic_int_sub( thread_atomic_int_t* atomic, int value )
     {
     #if defined( _WIN32 )
     
-        return InterlockedAdd( &atomic->i, -value ) + value;
+        return InterlockedExchangeAdd( &atomic->i, -value );
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
@@ -1153,7 +1165,13 @@ void thread_atomic_ptr_store( thread_atomic_ptr_t* atomic, void* desired )
     {
     #if defined( _WIN32 )
     
+        #pragma warning( push )
+        #pragma warning( disable: 4302 ) // 'type cast' : truncation from 'void *' to 'LONG'
+        #pragma warning( disable: 4311 ) // pointer truncation from 'void *' to 'LONG'
+        #pragma warning( disable: 4312 ) // conversion from 'LONG' to 'PVOID' of greater size
         InterlockedExchangePointer( &atomic->ptr, desired );
+        #pragma warning( pop )
+
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
@@ -1170,7 +1188,12 @@ void* thread_atomic_ptr_swap( thread_atomic_ptr_t* atomic, void* desired )
     {
     #if defined( _WIN32 )
     
+        #pragma warning( push )
+        #pragma warning( disable: 4302 ) // 'type cast' : truncation from 'void *' to 'LONG'
+        #pragma warning( disable: 4311 ) // pointer truncation from 'void *' to 'LONG'
+        #pragma warning( disable: 4312 ) // conversion from 'LONG' to 'PVOID' of greater size
         return InterlockedExchangePointer( &atomic->ptr, desired );
+        #pragma warning( pop )
     
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
@@ -1205,7 +1228,10 @@ void thread_timer_init( thread_timer_t* timer )
     #if defined( _WIN32 )
 
         // Compile-time size check
+        #pragma warning( push )
+        #pragma warning( disable: 4214 ) // nonstandard extension used: bit field types other than int
         struct x { char thread_timer_type_too_small : ( sizeof( thread_mutex_t ) < sizeof( HANDLE ) ? 0 : 1 ); }; 
+        #pragma warning( pop )
 
         TIMECAPS tc;
         if( timeGetDevCaps( &tc, sizeof( TIMECAPS ) ) == TIMERR_NOERROR ) 
@@ -1339,13 +1365,14 @@ void* thread_tls_get( thread_tls_t tls )
     #endif
     }
 
+
 void thread_queue_init( thread_queue_t* queue, int size, void** values, int count )
     {
     queue->values = values;
     thread_signal_init( &queue->data_ready );
     thread_signal_init( &queue->space_open );
     thread_atomic_int_store( &queue->head, 0 );
-    thread_atomic_int_store( &queue->tail, ( count > size ? size : count ) % size );
+    thread_atomic_int_store( &queue->tail, count > size ? size : count );
     thread_atomic_int_store( &queue->count, count > size ? size : count );
     queue->size = size;
     #ifndef NDEBUG
@@ -1362,7 +1389,7 @@ void thread_queue_term( thread_queue_t* queue )
     }
 
 
-void thread_queue_produce( thread_queue_t* queue, void* value )
+int thread_queue_produce( thread_queue_t* queue, void* value, int timeout_ms )
     {
     #ifndef NDEBUG
         if( thread_atomic_int_compare_and_swap( &queue->id_produce_is_set, 0, 1 ) == 0 )
@@ -1370,15 +1397,19 @@ void thread_queue_produce( thread_queue_t* queue, void* value )
         assert( thread_current_thread_id() == queue->id_produce );
     #endif
     if( thread_atomic_int_load( &queue->count ) == queue->size )
-        thread_signal_wait( &queue->space_open, THREAD_SIGNAL_WAIT_INFINITE );
+        {
+        if( timeout_ms == 0 ) return 0;
+        thread_signal_wait( &queue->space_open, timeout_ms == THREAD_QUEUE_WAIT_INFINITE ? THREAD_SIGNAL_WAIT_INFINITE : timeout_ms );
+        }
     int tail = thread_atomic_int_inc( &queue->tail );
     queue->values[ tail % queue->size ] = value;
     if( thread_atomic_int_inc( &queue->count ) == 0 )
         thread_signal_raise( &queue->data_ready );
+    return 0;
     }
 
 
-void* thread_queue_consume( thread_queue_t* queue )
+void* thread_queue_consume( thread_queue_t* queue, int timeout_ms )
     {
     #ifndef NDEBUG
         if( thread_atomic_int_compare_and_swap( &queue->id_consume_is_set, 0, 1 ) == 0 )
@@ -1386,7 +1417,10 @@ void* thread_queue_consume( thread_queue_t* queue )
         assert( thread_current_thread_id() == queue->id_consume );
     #endif
     if( thread_atomic_int_load( &queue->count ) == 0 )
+        {
+        if( timeout_ms == 0 ) return NULL;
         thread_signal_wait( &queue->data_ready, THREAD_SIGNAL_WAIT_INFINITE );
+        }
     int head = thread_atomic_int_inc( &queue->head );
     void* retval = queue->values[ head % queue->size ];
     if( thread_atomic_int_dec( &queue->count ) == queue->size )
@@ -1405,6 +1439,8 @@ int thread_queue_count( thread_queue_t* queue )
 
 /*
 revision history:
+    0.3     set_high_priority API change. Fixed spurious wakeup bug in signal. Added 
+            timeout param to queue produce/consume. Various cleanup and trivial fixes.
     0.2     first publicly released version 
 */
 
