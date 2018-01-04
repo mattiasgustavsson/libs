@@ -22,7 +22,7 @@ typedef struct hashtable_t hashtable_t;
 void hashtable_init( hashtable_t* table, int item_size, int initial_capacity, void* memctx );
 void hashtable_term( hashtable_t* table );
 
-void hashtable_insert( hashtable_t* table, HASHTABLE_U64 key, void const* item );
+int hashtable_insert( hashtable_t* table, HASHTABLE_U64 key, void const* item );
 void hashtable_remove( hashtable_t* table, HASHTABLE_U64 key );
 void hashtable_clear( hashtable_t* table );
 
@@ -224,7 +224,7 @@ the instance is reinitialized by another call to `hashtable_init`.
 hashtable_insert
 ----------------
 
-    void hashtable_insert( hashtable_t* table, HASHTABLE_U64 key, void const* item )
+    int hashtable_insert( hashtable_t* table, HASHTABLE_U64 key, void const* item )
 
 Inserts a data item into the hashtable, associating it with the specified key. The item is copied into the hashtable, 
 rather than just storing the `item` pointer, so the `item` pointer can be safely released after the call to 
@@ -508,12 +508,13 @@ static void hashtable_internal_expand_slots( hashtable_t* table )
     }
 
 
-static void hashtable_internal_expand_items( hashtable_t* table )
+static int hashtable_internal_expand_items( hashtable_t* table )
     {
     table->item_capacity *= 2;
      HASHTABLE_U64* const new_items_key = (HASHTABLE_U64*) HASHTABLE_MALLOC( table->memctx, 
          table->item_capacity * ( sizeof( *table->items_key ) + sizeof( *table->items_slot ) + table->item_size ) + table->item_size);
-    HASHTABLE_ASSERT( new_items_key );
+    if( new_items_key == NULL )
+        return 0;
 
     int* const new_items_slot = (int*)( new_items_key + table->item_capacity );
     void* const new_items_data = (void*)( new_items_slot + table->item_capacity );
@@ -529,10 +530,12 @@ static void hashtable_internal_expand_items( hashtable_t* table )
     table->items_slot = new_items_slot;
     table->items_data = new_items_data;
     table->swap_temp = new_swap_temp;
+
+    return 1;
     }
 
 
-void hashtable_insert( hashtable_t* table, HASHTABLE_U64 key, void const* item )
+int hashtable_insert( hashtable_t* table, HASHTABLE_U64 key, void const* item )
     {
     HASHTABLE_ASSERT( hashtable_internal_find_slot( table, key ) < 0 );
 
@@ -561,7 +564,8 @@ void hashtable_insert( hashtable_t* table, HASHTABLE_U64 key, void const* item )
         slot = ( slot + 1 ) & slot_mask;
 
     if( table->count >= table->item_capacity )
-        hashtable_internal_expand_items( table );
+        if( !hashtable_internal_expand_items( table ) )
+            return 0;
 
     HASHTABLE_ASSERT( !table->slots[ slot ].key_hash && ( hash & (HASHTABLE_U32) slot_mask ) == (HASHTABLE_U32) base_slot );
     HASHTABLE_ASSERT( hash );
@@ -575,6 +579,8 @@ void hashtable_insert( hashtable_t* table, HASHTABLE_U64 key, void const* item )
     table->items_key[ table->count ] = key;
     table->items_slot[ table->count ] = slot;
     ++table->count;
+
+    return 1;
     } 
 
 
