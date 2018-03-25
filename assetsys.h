@@ -6068,7 +6068,7 @@ assetsys_error_t assetsys_dismount( assetsys_t* sys, char const* path, char cons
             ASSETSYS_FREE( sys->memctx, mount->files );
 
             int count = sys->mounts_count - i;
-            if( count > 0 ) memcpy( &sys->mounts[ i ], &sys->mounts[ i + 1 ], sizeof( *sys->mounts ) * count );
+            if( count > 0 ) memmove( &sys->mounts[ i ], &sys->mounts[ i + 1 ], sizeof( *sys->mounts ) * count );
             --sys->mounts_count;
 
             return !result ? ASSETSYS_ERROR_FAILED_TO_CLOSE_ZIP : ASSETSYS_SUCCESS;
