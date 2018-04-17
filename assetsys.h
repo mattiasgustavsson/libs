@@ -60,6 +60,9 @@ int assetsys_subdir_count( assetsys_t* sys, char const* path );
 char const* assetsys_subdir_name( assetsys_t* sys, char const* path, int index );
 char const* assetsys_subdir_path( assetsys_t* sys, char const* path, int index );
 
+int assetsys_file_ref_count( assetsys_t* sys, char const* path );
+assetsys_error_t assetsys_file_by_index( assetsys_t* sys, char const* path, assetsys_file_t* file, int index );
+
 #endif /* assetsys_h */
 
 /**
@@ -5863,8 +5866,8 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
     if( strchr( mount_as, ':' ) ) return ASSETSYS_ERROR_INVALID_PATH;
     if( strchr( mount_as, '\\' ) ) return ASSETSYS_ERROR_INVALID_PATH;
     int len = (int) strlen( path );
-    if( len > 0 && path[ 0 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;       
-    if( len > 1 && path[ len - 1 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;     
+    // if( len > 0 && path[ 0 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;
+    // if( len > 1 && path[ len - 1 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;
     int mount_len = (int) strlen( mount_as );
     if( mount_len == 0 || mount_as[ 0 ] != '/' || ( mount_len > 1 && mount_as[ mount_len - 1 ] == '/' ) ) 
         return ASSETSYS_ERROR_INVALID_PATH;     
@@ -5897,6 +5900,15 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
         memcpy( new_mounts, sys->mounts, sizeof( *sys->mounts ) * sys->mounts_count );
         ASSETSYS_FREE( sys->memctx, sys->mounts );
         sys->mounts = new_mounts;
+        struct assetsys_internal_mount_t* mount_ptr;
+        for( int i = 0; i < sys->mounts_count; ++i )
+            {
+            mount_ptr = sys->mounts + i;
+            if (mount_ptr->type == ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP) 
+                {
+                mount_ptr->zip.m_pIO_opaque = &mount_ptr->zip;
+                }
+            }
         }
 
     struct assetsys_internal_mount_t* mount = &sys->mounts[ sys->mounts_count ];
@@ -6068,7 +6080,7 @@ assetsys_error_t assetsys_dismount( assetsys_t* sys, char const* path, char cons
             ASSETSYS_FREE( sys->memctx, mount->files );
 
             int count = sys->mounts_count - i;
-            if( count > 0 ) memcpy( &sys->mounts[ i ], &sys->mounts[ i + 1 ], sizeof( *sys->mounts ) * count );
+            if( count > 0 ) memmove( &sys->mounts[ i ], &sys->mounts[ i + 1 ], sizeof( *sys->mounts ) * count );
             --sys->mounts_count;
 
             return !result ? ASSETSYS_ERROR_FAILED_TO_CLOSE_ZIP : ASSETSYS_SUCCESS;
@@ -6308,6 +6320,48 @@ static char* assetsys_internal_dirname( char const* path )
     return result;
     }
 
+int assetsys_file_ref_count(assetsys_t* sys, char const* path) 
+    {
+    if( !path ) return 0;
+
+    int collated_index = assetsys_internal_find_collated( sys, path );
+    if( collated_index > -1 ) return sys->collated[collated_index].ref_count;
+
+    return 0;
+    }
+
+assetsys_error_t assetsys_file_by_index(assetsys_t* sys, char const* path, assetsys_file_t* file, int index) 
+    {
+    if( !file || !path ) return ASSETSYS_ERROR_INVALID_PARAMETER;
+
+    ASSETSYS_U64 handle = strpool_inject( &sys->strpool, path, (int)strlen( path ) );
+
+    int m = sys->mounts_count;
+    int match = 0;
+    while( m > 0 )
+        {
+        --m;
+        struct assetsys_internal_mount_t* mount = &sys->mounts[ m ];
+        for( int i = 0; i < mount->files_count; ++i )
+            {
+            ASSETSYS_U64 h = sys->collated[ mount->files[ i ].collated_index ].path;
+            if( handle == h )
+                {
+                if( index == match ) 
+                    {
+                    file->mount = mount->mounted_as;
+                    file->path = mount->path;
+                    file->index = i;
+                    return ASSETSYS_SUCCESS;
+                    }
+                ++match;
+                }
+            }
+        }
+
+    strpool_discard(&sys->strpool, handle);
+    return ASSETSYS_ERROR_FILE_NOT_FOUND;
+    }
 
 #endif /* ASSETSYS_IMPLEMENTATION */
 
