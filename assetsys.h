@@ -5900,7 +5900,8 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
         memcpy( new_mounts, sys->mounts, sizeof( *sys->mounts ) * sys->mounts_count );
         ASSETSYS_FREE( sys->memctx, sys->mounts );
         sys->mounts = new_mounts;
-        for (i = 0; i < sys->mounts_count; ++i) 
+        struct assetsys_internal_mount_t* mount_ptr;
+        for( int i = 0; i < sys->mounts_count; ++i )
             {
             mount_ptr = sys->mounts + i;
             if (mount_ptr->type == ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP) 
