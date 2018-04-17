@@ -60,6 +60,9 @@ int assetsys_subdir_count( assetsys_t* sys, char const* path );
 char const* assetsys_subdir_name( assetsys_t* sys, char const* path, int index );
 char const* assetsys_subdir_path( assetsys_t* sys, char const* path, int index );
 
+int assetsys_file_ref_count( assetsys_t* sys, char const* path );
+assetsys_error_t assetsys_file_by_index( assetsys_t* sys, char const* path, assetsys_file_t* file, int index );
+
 #endif /* assetsys_h */
 
 /**
@@ -6308,6 +6311,48 @@ static char* assetsys_internal_dirname( char const* path )
     return result;
     }
 
+int assetsys_file_ref_count(assetsys_t* sys, char const* path) 
+    {
+    if( !path ) return 0;
+
+    int collated_index = assetsys_internal_find_collated( sys, path );
+    if( collated_index > -1 ) return sys->collated[collated_index].ref_count;
+
+    return 0;
+    }
+
+assetsys_error_t assetsys_file_by_index(assetsys_t* sys, char const* path, assetsys_file_t* file, int index) 
+    {
+    if( !file || !path ) return ASSETSYS_ERROR_INVALID_PARAMETER;
+
+    ASSETSYS_U64 handle = strpool_inject( &sys->strpool, path, (int)strlen( path ) );
+
+    int m = sys->mounts_count;
+    int match = 0;
+    while( m > 0 )
+        {
+        --m;
+        struct assetsys_internal_mount_t* mount = &sys->mounts[ m ];
+        for( int i = 0; i < mount->files_count; ++i )
+            {
+            ASSETSYS_U64 h = sys->collated[ mount->files[ i ].collated_index ].path;
+            if( handle == h )
+                {
+                if( index == match ) 
+                    {
+                    file->mount = mount->mounted_as;
+                    file->path = mount->path;
+                    file->index = i;
+                    return ASSETSYS_SUCCESS;
+                    }
+                ++match;
+                }
+            }
+        }
+
+    strpool_discard(&sys->strpool, handle);
+    return ASSETSYS_ERROR_FILE_NOT_FOUND;
+    }
 
 #endif /* ASSETSYS_IMPLEMENTATION */
 
