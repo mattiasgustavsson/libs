@@ -5863,8 +5863,8 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
     if( strchr( mount_as, ':' ) ) return ASSETSYS_ERROR_INVALID_PATH;
     if( strchr( mount_as, '\\' ) ) return ASSETSYS_ERROR_INVALID_PATH;
     int len = (int) strlen( path );
-    if( len > 0 && path[ 0 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;       
-    if( len > 1 && path[ len - 1 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;     
+    // if( len > 0 && path[ 0 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;
+    // if( len > 1 && path[ len - 1 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;
     int mount_len = (int) strlen( mount_as );
     if( mount_len == 0 || mount_as[ 0 ] != '/' || ( mount_len > 1 && mount_as[ mount_len - 1 ] == '/' ) ) 
         return ASSETSYS_ERROR_INVALID_PATH;     
