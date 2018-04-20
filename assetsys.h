@@ -374,8 +374,12 @@ path. If the path is invalid or index is out of range, `assetsys_subdir_path` re
 #ifdef ASSETSYS_IMPLEMENTATION
 #undef ASSETSYS_IMPLEMENTATION
 
+#ifndef _CRT_NONSTDC_NO_DEPRECATE
 #define _CRT_NONSTDC_NO_DEPRECATE 
+#endif
+#ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
+#endif
 
 #ifdef ASSETSYS_NO_MINIZ
     #define MINIZ_HEADER_FILE_ONLY
@@ -5341,22 +5345,34 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 
 #pragma warning( pop )
 
+#ifndef _CRT_NONSTDC_NO_DEPRECATE
 #define _CRT_NONSTDC_NO_DEPRECATE 
+#endif
+#ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <sys/stat.h>
 
 #include "strpool.h"
 
 #ifndef ASSETSYS_ASSERT
+    #ifndef _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_NONSTDC_NO_DEPRECATE 
+    #endif
+    #ifndef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
+    #endif
     #include <assert.h>
     #define ASSETSYS_ASSERT( x ) assert( x )
 #endif
 
 #ifndef ASSETSYS_MALLOC
+    #ifndef _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_NONSTDC_NO_DEPRECATE 
+    #endif
+    #ifndef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
+    #endif
     #include <stdlib.h>
     #define ASSETSYS_MALLOC( ctx, size ) ( malloc( size ) )
     #define ASSETSYS_FREE( ctx, ptr ) ( free( ptr ) )
@@ -5364,9 +5380,12 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 
 
 #if defined( _WIN32 )
-
+    #ifndef _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_NONSTDC_NO_DEPRECATE 
+    #endif
+    #ifndef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
+    #endif
     #undef _WIN32_WINNT
     #define _WIN32_WINNT 0x0501 // requires Windows XP minimum
     // 0x0400=Windows NT 4.0, 0x0500=Windows 2000, 0x0501=Windows XP, 0x0502=Windows Server 2003, 0x0600=Windows Vista, 
@@ -6205,6 +6224,7 @@ int assetsys_file_count( assetsys_t* sys, char const* path )
     {
     if( !path ) return 0;
     int dir = assetsys_internal_find_collated( sys, path );
+    if (dir < 0) return 0;
     int count = 0;
     for( int i = 0; i < sys->collated_count; ++i )
         {
@@ -6235,6 +6255,7 @@ char const* assetsys_file_path( assetsys_t* sys, char const* path, int index )
     {
     if( !path ) return 0;
     int dir = assetsys_internal_find_collated( sys, path );
+    if (dir < 0) return NULL;
     int count = 0;
     for( int i = 0; i < sys->collated_count; ++i )
         {
@@ -6252,6 +6273,7 @@ int assetsys_subdir_count( assetsys_t* sys, char const* path )
     {
     if( !path ) return 0;
     int dir = assetsys_internal_find_collated( sys, path );
+    if (dir < 0) return 0;
     int count = 0;
     for( int i = 0; i < sys->collated_count; ++i )
         {
@@ -6282,6 +6304,7 @@ char const* assetsys_subdir_path( assetsys_t* sys, char const* path, int index )
     {
     if( !path ) return 0;
     int dir = assetsys_internal_find_collated( sys, path );
+    if (dir < 0) return NULL;
     int count = 0;
     for( int i = 0; i < sys->collated_count; ++i )
         {
