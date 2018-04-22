@@ -6209,7 +6209,7 @@ static int assetsys_internal_find_collated( assetsys_t* sys, char const* const p
 
     for( int i = 0; i < sys->collated_count; ++i )
         {
-        if( sys->collated[ i ].path == handle )
+        if( sys->collated[ i ].ref_count > 0 && sys->collated[ i ].path == handle )
             {
             return i;
             }
@@ -6228,7 +6228,7 @@ int assetsys_file_count( assetsys_t* sys, char const* path )
     int count = 0;
     for( int i = 0; i < sys->collated_count; ++i )
         {
-        if( sys->collated[ i ].is_file && sys->collated[ i ].parent == dir )
+        if( sys->collated[ i ].ref_count > 0 && sys->collated[ i ].is_file && sys->collated[ i ].parent == dir )
             {
             ++count;
             }
@@ -6259,7 +6259,7 @@ char const* assetsys_file_path( assetsys_t* sys, char const* path, int index )
     int count = 0;
     for( int i = 0; i < sys->collated_count; ++i )
         {
-        if( sys->collated[ i ].is_file &&  sys->collated[ i ].parent == dir )
+        if( sys->collated[ i ].ref_count > 0 && sys->collated[ i ].is_file &&  sys->collated[ i ].parent == dir )
             {
             if( count == index ) return assetsys_internal_get_string( sys, sys->collated[ i ].path );
             ++count;
@@ -6277,7 +6277,7 @@ int assetsys_subdir_count( assetsys_t* sys, char const* path )
     int count = 0;
     for( int i = 0; i < sys->collated_count; ++i )
         {
-        if( !sys->collated[ i ].is_file && sys->collated[ i ].parent == dir )
+        if( sys->collated[ i ].ref_count > 0 && !sys->collated[ i ].is_file && sys->collated[ i ].parent == dir )
             {
             ++count;
             }
@@ -6308,7 +6308,7 @@ char const* assetsys_subdir_path( assetsys_t* sys, char const* path, int index )
     int count = 0;
     for( int i = 0; i < sys->collated_count; ++i )
         {
-        if( !sys->collated[ i ].is_file &&  sys->collated[ i ].parent == dir )
+        if( sys->collated[ i ].ref_count > 0 && !sys->collated[ i ].is_file &&  sys->collated[ i ].parent == dir )
             {
             if( count == index ) return assetsys_internal_get_string( sys, sys->collated[ i ].path );
             ++count;
