@@ -752,7 +752,7 @@ int ini_find_property( ini_t const* ini, int section, char const* name, int name
         {
         if( name_length <= 0 ) name_length = (int) INI_STRLEN( name );
         c = 0;
-        for( i = 0; i < ini->property_capacity; ++i )
+        for( i = 0; i < ini->property_count; ++i )
             {
             if( ini->properties[ i ].section == section )
                 {
