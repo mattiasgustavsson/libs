@@ -734,7 +734,7 @@ int ini_find_section( ini_t const* ini, char const* name, int name_length )
             {
             char const* const other = 
                 ini->sections[ i ].name_large ? ini->sections[ i ].name_large : ini->sections[ i ].name;
-            if( ( INI_STRNICMP( name, other, name_length ) == 0 ) && ( name[name_length] == '\0' ) )
+            if( ( INI_STRNICMP( name, other, name_length ) == 0 ) && ( other[name_length] == '\0' ) )
                 return i;
             }
         }
@@ -758,7 +758,7 @@ int ini_find_property( ini_t const* ini, int section, char const* name, int name
                 {
                 char const* const other = 
                     ini->properties[ i ].name_large ? ini->properties[ i ].name_large : ini->properties[ i ].name;
-                if( ( INI_STRNICMP( name, other, name_length ) == 0 ) && ( name[name_length] == '\0' ) )
+                if( ( INI_STRNICMP( name, other, name_length ) == 0 ) && ( other[name_length] == '\0' ) )
                     return c;
                 ++c;
                 }
