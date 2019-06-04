@@ -13,6 +13,11 @@ before you include this file in *one* C/C++ file to create the implementation.
 #ifndef thread_h
 #define thread_h
 
+#if !defined( _MSC_VER )
+#include <pthread.h>
+#include <unistd.h>
+#endif
+
 #ifndef THREAD_U64
     #define THREAD_U64 unsigned long long
 #endif
@@ -65,7 +70,11 @@ void thread_timer_init( thread_timer_t* timer );
 void thread_timer_term( thread_timer_t* timer );
 void thread_timer_wait( thread_timer_t* timer, THREAD_U64 nanoseconds );
 
+#if defined( _WIN32 ) && defined( _MSC_VER )
 typedef void* thread_tls_t;
+#else
+typedef pthread_key_t thread_tls_t;
+#endif
 thread_tls_t thread_tls_create( void );
 void thread_tls_destroy( thread_tls_t tls );
 void thread_tls_set( thread_tls_t tls, void* value );
@@ -577,8 +586,7 @@ struct thread_queue_t
 #ifdef THREAD_IMPLEMENTATION
 #undef THREAD_IMPLEMENTATION
 
-
-#if defined( _WIN32 )
+#if defined( _WIN32 ) &&  defined( _MSC_VER )
 
     #pragma comment( lib, "winmm.lib" )
 
@@ -609,11 +617,15 @@ struct thread_queue_t
         } THREADNAME_INFO;
     #pragma pack(pop)
     
-#elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+#elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
     #include <pthread.h>
     #include <sys/time.h>
-
+    #include <string.h>
+    #include <errno.h>
+    #if defined( __linux__ )
+    #include <cstdint>
+    #endif
 #else 
     #error Unknown platform.
 #endif
@@ -623,14 +635,13 @@ struct thread_queue_t
     #include <assert.h>
 #endif
 
-
 thread_id_t thread_current_thread_id( void )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         return (void*) (uintptr_t)GetCurrentThreadId();
 
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
     
         return (void*) pthread_self();
 
@@ -642,11 +653,11 @@ thread_id_t thread_current_thread_id( void )
 
 void thread_yield( void )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         SwitchToThread();
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
     
         sched_yield();
     
@@ -658,11 +669,11 @@ void thread_yield( void )
 
 void thread_exit( int return_code )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         ExitThread( (DWORD) return_code );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
     
         pthread_exit( (void*)(uintptr_t) return_code );
     
@@ -674,7 +685,7 @@ void thread_exit( int return_code )
 
 thread_ptr_t thread_create( int (*thread_proc)( void* ), void* user_data, char const* name, int stack_size )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         DWORD thread_id;
         HANDLE handle = CreateThread( NULL, stack_size > 0 ? (size_t)stack_size : 0U, 
@@ -701,7 +712,7 @@ thread_ptr_t thread_create( int (*thread_proc)( void* ), void* user_data, char c
 
         return (thread_ptr_t) handle;
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_t thread;
         if( 0 != pthread_create( &thread, NULL, ( void* (*)( void * ) ) thread_proc, user_data ) )
@@ -721,12 +732,12 @@ thread_ptr_t thread_create( int (*thread_proc)( void* ), void* user_data, char c
 
 void thread_destroy( thread_ptr_t thread )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         WaitForSingleObject( (HANDLE) thread, INFINITE );
         CloseHandle( (HANDLE) thread );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_join( (pthread_t) thread, NULL );
 
@@ -738,14 +749,14 @@ void thread_destroy( thread_ptr_t thread )
 
 int thread_join( thread_ptr_t thread )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         WaitForSingleObject( (HANDLE) thread, INFINITE );
         DWORD retval;
         GetExitCodeThread( (HANDLE) thread, &retval );
         return (int) retval;
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         void* retval;
         pthread_join( (pthread_t) thread, &retval );
@@ -759,11 +770,11 @@ int thread_join( thread_ptr_t thread )
 
 void thread_set_high_priority( void )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_HIGHEST );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         struct sched_param sp;
         memset( &sp, 0, sizeof( sp ) );
@@ -778,7 +789,7 @@ void thread_set_high_priority( void )
 
 void thread_mutex_init( thread_mutex_t* mutex )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         // Compile-time size check
         #pragma warning( push )
@@ -788,7 +799,7 @@ void thread_mutex_init( thread_mutex_t* mutex )
 
         InitializeCriticalSectionAndSpinCount( (CRITICAL_SECTION*) mutex, 32 );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         // Compile-time size check
         struct x { char thread_mutex_type_too_small : ( sizeof( thread_mutex_t ) < sizeof( pthread_mutex_t ) ? 0 : 1 ); };
@@ -803,11 +814,11 @@ void thread_mutex_init( thread_mutex_t* mutex )
 
 void thread_mutex_term( thread_mutex_t* mutex )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
         
         DeleteCriticalSection( (CRITICAL_SECTION*) mutex );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_mutex_destroy( (pthread_mutex_t*) mutex );
     
@@ -819,14 +830,13 @@ void thread_mutex_term( thread_mutex_t* mutex )
 
 void thread_mutex_lock( thread_mutex_t* mutex )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         EnterCriticalSection( (CRITICAL_SECTION*) mutex );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_mutex_lock( (pthread_mutex_t*) mutex );
-    
     #else 
         #error Unknown platform.
     #endif
@@ -835,23 +845,24 @@ void thread_mutex_lock( thread_mutex_t* mutex )
 
 void thread_mutex_unlock( thread_mutex_t* mutex )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         LeaveCriticalSection( (CRITICAL_SECTION*) mutex );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_mutex_unlock( (pthread_mutex_t*) mutex );
     
     #else 
         #error Unknown platform.
     #endif
+    
     }
 
 
 struct thread_internal_signal_t
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         #if _WIN32_WINNT >= 0x0600
             CRITICAL_SECTION mutex;
@@ -861,7 +872,7 @@ struct thread_internal_signal_t
             HANDLE event;
         #endif 
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_mutex_t mutex;
         pthread_cond_t condition;
@@ -883,7 +894,7 @@ void thread_signal_init( thread_signal_t* signal )
     
     struct thread_internal_signal_t* internal = (struct thread_internal_signal_t*) signal;
         
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         #if _WIN32_WINNT >= 0x0600
             InitializeCriticalSectionAndSpinCount( &internal->mutex, 32 );
@@ -893,7 +904,7 @@ void thread_signal_init( thread_signal_t* signal )
             internal->event = CreateEvent( NULL, FALSE, FALSE, NULL );
         #endif 
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_mutex_init( &internal->mutex, NULL );
         pthread_cond_init( &internal->condition, NULL );
@@ -909,7 +920,7 @@ void thread_signal_init( thread_signal_t* signal )
     {
     struct thread_internal_signal_t* internal = (struct thread_internal_signal_t*) signal;
 
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         #if _WIN32_WINNT >= 0x0600
             DeleteCriticalSection( &internal->mutex );
@@ -917,7 +928,7 @@ void thread_signal_init( thread_signal_t* signal )
             CloseHandle( internal->event );
         #endif 
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_mutex_destroy( &internal->mutex );
         pthread_cond_destroy( &internal->condition );
@@ -932,7 +943,7 @@ void thread_signal_raise( thread_signal_t* signal )
     {
     struct thread_internal_signal_t* internal = (struct thread_internal_signal_t*) signal;
 
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         #if _WIN32_WINNT >= 0x0600
             EnterCriticalSection( &internal->mutex );
@@ -943,7 +954,7 @@ void thread_signal_raise( thread_signal_t* signal )
             SetEvent( internal->event );
         #endif 
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_mutex_lock( &internal->mutex );
         internal->value = 1;
@@ -960,7 +971,7 @@ int thread_signal_wait( thread_signal_t* signal, int timeout_ms )
     {
     struct thread_internal_signal_t* internal = (struct thread_internal_signal_t*) signal;
 
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         #if _WIN32_WINNT >= 0x0600
             int timed_out = 0;
@@ -978,7 +989,7 @@ int thread_signal_wait( thread_signal_t* signal, int timeout_ms )
             return !failed;
         #endif 
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         struct timespec ts;
         if( timeout_ms >= 0 )
@@ -1016,11 +1027,11 @@ int thread_signal_wait( thread_signal_t* signal, int timeout_ms )
 
 int thread_atomic_int_load( thread_atomic_int_t* atomic )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         return InterlockedCompareExchange( &atomic->i, 0, 0 );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         return (int)__sync_fetch_and_add( &atomic->i, 0 );
     
@@ -1032,14 +1043,14 @@ int thread_atomic_int_load( thread_atomic_int_t* atomic )
 
 void thread_atomic_int_store( thread_atomic_int_t* atomic, int desired )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         InterlockedExchange( &atomic->i, desired );
 
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         __sync_lock_test_and_set( &atomic->i, desired );
-        __sync_lock_release( &atomic->i );
+        __sync_lock_release( &atomic );
     
     #else 
         #error Unknown platform.
@@ -1049,11 +1060,11 @@ void thread_atomic_int_store( thread_atomic_int_t* atomic, int desired )
 
 int thread_atomic_int_inc( thread_atomic_int_t* atomic )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         return InterlockedIncrement( &atomic->i ) - 1;
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         return (int)__sync_fetch_and_add( &atomic->i, 1 );
     
@@ -1065,11 +1076,11 @@ int thread_atomic_int_inc( thread_atomic_int_t* atomic )
 
 int thread_atomic_int_dec( thread_atomic_int_t* atomic )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         return InterlockedDecrement( &atomic->i ) + 1;
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         return (int)__sync_fetch_and_sub( &atomic->i, 1 );
 
@@ -1081,11 +1092,11 @@ int thread_atomic_int_dec( thread_atomic_int_t* atomic )
 
 int thread_atomic_int_add( thread_atomic_int_t* atomic, int value )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         return InterlockedExchangeAdd ( &atomic->i, value );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         return (int)__sync_fetch_and_add( &atomic->i, value );
     
@@ -1097,11 +1108,11 @@ int thread_atomic_int_add( thread_atomic_int_t* atomic, int value )
 
 int thread_atomic_int_sub( thread_atomic_int_t* atomic, int value )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         return InterlockedExchangeAdd( &atomic->i, -value );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         return (int)__sync_fetch_and_sub( &atomic->i, value );
 
@@ -1113,14 +1124,14 @@ int thread_atomic_int_sub( thread_atomic_int_t* atomic, int value )
 
 int thread_atomic_int_swap( thread_atomic_int_t* atomic, int desired )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         return InterlockedExchange( &atomic->i, desired );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         int old = (int)__sync_lock_test_and_set( &atomic->i, desired );
-        __sync_lock_release( &atomic->i );
+        __sync_lock_release( &atomic );
         return old;
     
     #else 
@@ -1131,11 +1142,11 @@ int thread_atomic_int_swap( thread_atomic_int_t* atomic, int desired )
 
 int thread_atomic_int_compare_and_swap( thread_atomic_int_t* atomic, int expected, int desired )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         return InterlockedCompareExchange( &atomic->i, desired, expected );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         return (int)__sync_val_compare_and_swap( &atomic->i, expected, desired );
     
@@ -1147,11 +1158,11 @@ int thread_atomic_int_compare_and_swap( thread_atomic_int_t* atomic, int expecte
 
 void* thread_atomic_ptr_load( thread_atomic_ptr_t* atomic )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         return InterlockedCompareExchangePointer( &atomic->ptr, 0, 0 );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         return __sync_fetch_and_add( &atomic->ptr, 0 );
     
@@ -1163,7 +1174,7 @@ void* thread_atomic_ptr_load( thread_atomic_ptr_t* atomic )
 
 void thread_atomic_ptr_store( thread_atomic_ptr_t* atomic, void* desired )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         #pragma warning( push )
         #pragma warning( disable: 4302 ) // 'type cast' : truncation from 'void *' to 'LONG'
@@ -1173,10 +1184,10 @@ void thread_atomic_ptr_store( thread_atomic_ptr_t* atomic, void* desired )
         #pragma warning( pop )
 
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         __sync_lock_test_and_set( &atomic->ptr, desired );
-        __sync_lock_release( &atomic->ptr );
+        __sync_lock_release( &atomic );
     
     #else 
         #error Unknown platform.
@@ -1186,7 +1197,7 @@ void thread_atomic_ptr_store( thread_atomic_ptr_t* atomic, void* desired )
 
 void* thread_atomic_ptr_swap( thread_atomic_ptr_t* atomic, void* desired )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         #pragma warning( push )
         #pragma warning( disable: 4302 ) // 'type cast' : truncation from 'void *' to 'LONG'
@@ -1195,10 +1206,10 @@ void* thread_atomic_ptr_swap( thread_atomic_ptr_t* atomic, void* desired )
         return InterlockedExchangePointer( &atomic->ptr, desired );
         #pragma warning( pop )
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         void* old = __sync_lock_test_and_set( &atomic->ptr, desired );
-        __sync_lock_release( &atomic->ptr );
+        __sync_lock_release( &atomic );
         return old;
     
     #else 
@@ -1209,11 +1220,11 @@ void* thread_atomic_ptr_swap( thread_atomic_ptr_t* atomic, void* desired )
 
 void* thread_atomic_ptr_compare_and_swap( thread_atomic_ptr_t* atomic, void* expected, void* desired )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
     
         return InterlockedCompareExchangePointer( &atomic->ptr, desired, expected );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         return __sync_val_compare_and_swap( &atomic->ptr, expected, desired );
 
@@ -1225,7 +1236,7 @@ void* thread_atomic_ptr_compare_and_swap( thread_atomic_ptr_t* atomic, void* exp
 
 void thread_timer_init( thread_timer_t* timer )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         // Compile-time size check
         #pragma warning( push )
@@ -1239,7 +1250,7 @@ void thread_timer_init( thread_timer_t* timer )
 
         *(HANDLE*)timer = CreateWaitableTimer( NULL, TRUE, NULL );
 
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         // Nothing
 
@@ -1251,7 +1262,7 @@ void thread_timer_init( thread_timer_t* timer )
 
 void thread_timer_term( thread_timer_t* timer )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         CloseHandle( *(HANDLE*)timer );
     
@@ -1259,7 +1270,7 @@ void thread_timer_term( thread_timer_t* timer )
         if( timeGetDevCaps( &tc, sizeof( TIMECAPS ) ) == TIMERR_NOERROR ) 
             timeEndPeriod( tc.wPeriodMin );
 
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         // Nothing
     
@@ -1271,7 +1282,7 @@ void thread_timer_term( thread_timer_t* timer )
 
 void thread_timer_wait( thread_timer_t* timer, THREAD_U64 nanoseconds )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         LARGE_INTEGER due_time;
         due_time.QuadPart = - (LONGLONG) ( nanoseconds / 100 );
@@ -1279,7 +1290,7 @@ void thread_timer_wait( thread_timer_t* timer, THREAD_U64 nanoseconds )
         (void) b;
         WaitForSingleObject( *(HANDLE*)timer, INFINITE ); 
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         struct timespec rem;
         struct timespec req;
@@ -1296,7 +1307,7 @@ void thread_timer_wait( thread_timer_t* timer, THREAD_U64 nanoseconds )
 
 thread_tls_t thread_tls_create( void )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         DWORD tls = TlsAlloc();      
         if( tls == TLS_OUT_OF_INDEXES )
@@ -1304,13 +1315,27 @@ thread_tls_t thread_tls_create( void )
         else
             return (thread_tls_t) (uintptr_t) tls;
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_key_t tls;
         if( pthread_key_create( &tls, NULL ) == 0 )
             return (thread_tls_t) tls;
         else
+            #if defined( __clang__ )
+            #pragma clang diagnostic push
+            #pragma clang diagnostic ignored "-Wconversion-null"
+            #elif defined( __GNUC__ )
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wconversion-null"
+            #endif
+
             return NULL;
+
+            #if defined( __clang__ )
+            #pragma clang diagnostic pop
+            #elif defined( __GNUC__ )
+            #pragma GCC diagnostic pop
+            #endif
 
     #else 
         #error Unknown platform.
@@ -1320,11 +1345,11 @@ thread_tls_t thread_tls_create( void )
 
 void thread_tls_destroy( thread_tls_t tls )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         TlsFree( (DWORD) (uintptr_t) tls );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_key_delete( (pthread_key_t) tls );
     
@@ -1336,11 +1361,11 @@ void thread_tls_destroy( thread_tls_t tls )
 
 void thread_tls_set( thread_tls_t tls, void* value )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         TlsSetValue( (DWORD) (uintptr_t) tls, value );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         pthread_setspecific( (pthread_key_t) tls, value );
     
@@ -1352,11 +1377,11 @@ void thread_tls_set( thread_tls_t tls, void* value )
 
 void* thread_tls_get( thread_tls_t tls )
     {
-    #if defined( _WIN32 )
+    #if defined( _WIN32 ) && defined( _MSC_VER )
 
         return TlsGetValue( (DWORD) (uintptr_t) tls );
     
-    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ ) || defined( __MINGW32__ )
 
         return pthread_getspecific( (pthread_key_t) tls );
     
