@@ -1,3 +1,5 @@
+[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W1B1W7)
+
 # libs
 Single-file public domain libraries for C/C++ (dual licensed under MIT).
 
@@ -10,5 +12,3 @@ Single-file public domain libraries for C/C++ (dual licensed under MIT).
 * [strpool.h](docs/strpool.md) - Highly efficient string pool for C/C++.
 * [thread.h](docs/thread.md) - Cross platform threading functions for C/C++.
 
-
-[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W1B1W7)
