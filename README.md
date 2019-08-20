@@ -9,3 +9,6 @@ Single-file public domain libraries for C/C++ (dual licensed under MIT).
 * [rnd.h](docs/rnd.md) - Pseudo-random number generators for C/C++.
 * [strpool.h](docs/strpool.md) - Highly efficient string pool for C/C++.
 * [thread.h](docs/thread.md) - Cross platform threading functions for C/C++.
+
+
+[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W1B1W7)
