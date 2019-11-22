@@ -1084,6 +1084,8 @@ void app_fatal_error( app_t* app, char const* message ) { }
 void app_pointer( app_t* app, int width, int height, APP_U32* pixels_abgr, int hotspot_x, int hotspot_y ) { }
 void app_pointer_default( app_t* app, int* width, int* height, APP_U32* pixels_abgr, int* hotspot_x, int* hotspot_y ) { }
 void app_pointer_pos( app_t* app, int x, int y ) { }
+int app_pointer_x( app_t* app ) { return 0; }
+int app_pointer_y( app_t* app ) { return 0; }
 void app_pointer_limit( app_t* app, int x, int y, int width, int height ) { }
 void app_pointer_limit_off( app_t* app ) { }
 void app_interpolation( app_t* app, app_interpolation_t interpolation ) { }
