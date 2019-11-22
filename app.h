@@ -2796,7 +2796,7 @@ void app_sound( app_t* app, int sample_pairs_count, void (*sound_callback)( APP_
                 }
 
             GUID const GUID_IDirectSoundBuffer8 = { 0x6825a449, 0x7524, 0x4d82, { 0x92, 0x0f, 0x50, 0xe3, 0x6a, 0xb3, 0xab, 0x1e } };
-            hr = IDirectSoundBuffer8_QueryInterface( soundbuf, GUID_IDirectSoundBuffer8, (void**) &app->dsoundbuf );
+            hr = IDirectSoundBuffer8_QueryInterface( soundbuf, &GUID_IDirectSoundBuffer8, (void**) &app->dsoundbuf );
             IDirectSoundBuffer_Release( soundbuf );
 
             if( FAILED( hr ) || !app->dsoundbuf )
@@ -2812,7 +2812,8 @@ void app_sound( app_t* app, int sample_pairs_count, void (*sound_callback)( APP_
 
             IDirectSoundNotify8* notify = NULL; 
             GUID const GUID_IDirectSoundNotify8 = { 0xb0210783, 0x89cd, 0x11d0, { 0xaf, 0x8, 0x0, 0xa0, 0xc9, 0x25, 0xcd, 0x16 } };
-            hr = app->dsoundbuf->QueryInterface( GUID_IDirectSoundNotify8, (void**) &notify );
+            hr = IDirectSoundBuffer8_QueryInterface( notify, &GUID_IDirectSoundNotify8, (void**) &app->dsoundbuf );
+
             if( FAILED( hr ) || !notify )
                 { 
                 app_log( app, APP_LOG_LEVEL_WARNING, "Failed to create sound buffer" ); 
