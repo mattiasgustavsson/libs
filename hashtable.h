@@ -40,26 +40,28 @@ void hashtable_swap( hashtable_t* table, int index_a, int index_b );
 
 /**
 
+hashtable.h
+===========
+
+Cache efficient hash table implementation for C/C++.
+
+
 Example
-=======
+-------
 
     #define HASHTABLE_IMPLEMENTATION
     #include "hashtable.h"
 
     #include <stdio.h> // for printf
 
-    int main( int argc, char** argv )                                                                                                                          
-        {                                                                                                                                                       
-        (void) argc, argv;
-
+    int main( int argc, char** argv ) {
         // define some example key and value types
         typedef struct key_t { int a, b, c; } key_t;
-        typedef struct value_t 
-            { 
+        typedef struct value_t { 
             char id[ 64 ]; 
             float x, y, z; 
             int n[ 250 ]; 
-            } value_t;
+        } value_t;
 
         // create a couple of sample keys 
         // (don't bother to fill in the fields for this sample)
@@ -92,19 +94,20 @@ Example
         HASHTABLE_U64 const* keys = hashtable_keys( &table );
         value_t* items = (value_t*)hashtable_items( &table );
         printf( "\nEnumeration:\n" );
-        for( int i = 0; i < count; ++i )
+        for( int i = 0; i < count; ++i ) {
             printf( "  0x%X : %s\n", (int) keys[ i ], items[ i ].id );
-
+        }
+        
         // cleanup
         hashtable_term( &table );
         free( key_b );
         free( key_a );
         return 0;
-        }
+    }
 
 
 API Documentation
-=================
+-----------------
 
 hashtable.h is a small library for storing values in a table and access them efficiently by a 64-bit key. It is a 
 single-header library, and does not need any .lib files or other binaries, or any build scripts. To use it, you just 
@@ -119,8 +122,8 @@ coherency, and hash collisions are resolved with open addressing/linear probing 
 also good for the cache. 
 
 
-Customization
--------------
+### Customization
+
 There are a few different things in hashtable.h which are configurable by #defines. Most of the API use the `int` data 
 type, for integer values where the exact size is not important. However, for some functions, it specifically makes use 
 of 32 and 64 bit data types. These default to using `unsigned int` and `unsigned long long` by default, but can be
@@ -142,7 +145,7 @@ Note that if all customizations are utilized, hashtable.h will include no extern
 useful if you need full control over what code is being built.
 
 
-### size_t
+#### size_t
 
 Internally, the hashtable.h implementation makes use of the standard `size_t` data type. This requires including the
 c runtime library header `<stddef.h>`. To allow full configurability, and avoid hashtable.h including stddef.h, you can 
@@ -155,7 +158,7 @@ specify which type hashtable.h should use for its size_t, by #defining HASHTABLE
 If not specified, hashtable.h will by default include stddef.h and use the standard `size_t` type.
 
 
-### Custom memory allocators
+#### Custom memory allocators
 
 To store the internal data structures, hashtable.h needs to do dynamic allocation by calling `malloc`. Programs might 
 want to keep track of allocations done, or use custom defined pools to allocate memory from. hashtable.h allows for 
@@ -176,7 +179,7 @@ right type, and access the tracking data.
 If no custom allocator is defined, hashtable.h will default to `malloc` and `free` from the C runtime library.
 
 
-### Custom assert
+#### Custom assert
 
 hashtable.h makes use of asserts to report usage errors and failed allocation errors. By default, it makes use of the C 
 runtime library `assert` macro, which only executes in debug builds. However, it allows for substituting with your own
@@ -189,7 +192,7 @@ assert function or macro using the following code:
 Note that if you only want the asserts to trigger in debug builds, you must add a check for this in your custom assert.
 
 
-### Custom C runtime functions
+#### Custom C runtime functions
 
 The library makes use of two additional functions from the C runtime library, and for full flexibility, it allows you 
 to substitute them for your own. Here's an example:
