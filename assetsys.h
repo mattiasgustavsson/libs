@@ -64,38 +64,40 @@ char const* assetsys_subdir_path( assetsys_t* sys, char const* path, int index )
 
 /**
 
+assetsys.h
+==========
+
+File system abstraction to read from zip-files, for C/C++.
+
+
 Example
-=======
+-------
 
     #define ASSETSYS_IMPLEMENTATION
     #include "libs/assetsys.h"
 
     #include <stdio.h> // for printf
 
-    void list_assets( assetsys_t* assetsys, char const* path, int indent )
-        {
+    void list_assets( assetsys_t* assetsys, char const* path, int indent ) {
         // Print folder names and recursively list assets
-        for( int i = 0; i < assetsys_subdir_count( assetsys, path ); ++i )
-            {
+        for( int i = 0; i < assetsys_subdir_count( assetsys, path ); ++i ) {
             char const* subdir_name = assetsys_subdir_name( assetsys, path, i );
             for( int j = 0; j < indent; ++j ) printf( "  " );
             printf( "%s/\n", subdir_name );
 
             char const* subdir_path = assetsys_subdir_path( assetsys, path, i );
             list_assets( assetsys, subdir_path, indent + 1 );
-            }
+        }
 
         // Print file names
-        for( int i = 0; i < assetsys_file_count( assetsys, path ); ++i )
-            {
+        for( int i = 0; i < assetsys_file_count( assetsys, path ); ++i ) {
             char const* file_name = assetsys_file_name( assetsys, path, i );
             for( int j = 0; j < indent; ++j ) printf( "  " );
             printf( "%s\n", file_name );
-            }
         }
+    }
 
-    int main( int, char** )
-        {
+    int main( int, char** ) {
         assetsys_t* assetsys = assetsys_create( 0 );
     
         // Mount current working folder as a virtual "/data" path
@@ -116,11 +118,11 @@ Example
         free( content );
 
         assetsys_destroy( assetsys );
-        }
+    }
 
 
 API Documentation
-=================
+-----------------
 
 assetsys.h is a system for loading binary assets into your game. It allows you to mount directories and archive files 
 (bundles of files; assetsys.h supports using standard zip files for this) assign them a virtual path. You then load 
@@ -144,8 +146,8 @@ some other part of your program. If you are not, you can make assetsys.h include
     #include "assetsys.h"
 
 
-Customization
--------------
+### Customization
+
 There are a few different things in assetsys.h which are configurable by #defines. Most of the API use the `int` data 
 type, for integer values where the exact size is not important. However, for some functions, it specifically makes use 
 of an unsigned 64 bit data types. It default to using `unsigned long long`, but can be redefined by #defining 
@@ -163,7 +165,7 @@ The rest of the customizations only affect the implementation, so will only need
 have the #define ASSETSYS_IMPLEMENTATION.
 
 
-### Custom memory allocators
+#### Custom memory allocators
 
 To store the internal data structures, ini.h needs to do dynamic allocation by calling `malloc`. Programs might want to 
 keep track of allocations done, or use custom defined pools to allocate memory from. assetsys.h allows for specifying 
@@ -184,7 +186,7 @@ right type, and access the tracking data.
 If no custom allocator is defined, assetsys.h will default to `malloc` and `free` from the C runtime library.
 
 
-### Custom assert
+#### Custom assert
 
 assetsys.h makes use of asserts to report usage errors and code errors. By default, it makes use of the C runtime 
 library `assert` macro, which only executes in debug builds. However, it allows for substituting with your own assert 
@@ -197,7 +199,7 @@ function or macro using the following code:
 Note that if you only want the asserts to trigger in debug builds, you must add a check for this in your custom assert.
 
 
-### miniz implementation
+#### miniz implementation
 
 assetsys.h makes use of the miniz library for parsing and decompressing zip files. It includes the entire miniz source
 code inside assetsys.h, so normally you don't have to worry about it. However, in the case where you might already be
@@ -362,7 +364,7 @@ path, including the `mount_as` prefix specified when the data source was mounted
 path. If the path is invalid or index is out of range, `assetsys_subdir_path` returns NULL.
 
 
-**/
+*/
 
 
 /*
