@@ -60,9 +60,14 @@ void strpool_free_collated( strpool_t const* pool, char* collated_ptr );
 
 
 /**
+strpool.h
+=========
+
+Highly efficient string pool for C/C++.
+
 
 Example
-=======
+-------
 
     #define  STRPOOL_IMPLEMENTATION
     #include "strpool.h"
@@ -70,9 +75,7 @@ Example
     #include <stdio.h> // for printf
     #include <string.h> // for strlen
 
-    int main( int argc, char** argv )
-        {
-        (void) argc, argv;
+    int main( int argc, char** argv ) {
 
         strpool_config_t conf = strpool_default_config;
         //conf.ignore_case = true;
@@ -89,11 +92,11 @@ Example
     
         strpool_term( &pool );
         return 0;
-        }
+    }
 
 
 API Documentation
-=================
+-----------------
 
 strpool.h is a system for string interning, where each string is stored only once. It makes comparing strings very fast,
 as it will just be uint64 comparison rather than looping over strings and comparing character by character. strpool.h is
@@ -104,8 +107,8 @@ it, you just include strpool.h to get the API declarations. To get the definitio
 *one* single C or C++ file, and #define the symbol `STRPOOL_IMPLEMENTATION` before you do. 
 
 
-Customization
--------------
+### Customization
+
 There are a few different things in strpool.h which are configurable by #defines. Most of the API use the `int` data 
 type, for integer values where the exact size is not important. However, for some functions, it specifically makes use 
 of 32 and 64 bit data types. These default to using `unsigned int` and `unsigned long long` by default, but can be
@@ -127,7 +130,7 @@ Note that if all customizations are utilized, strpool.h will include no external
 if you need full control over what code is being built.
 
 
-### Custom memory allocators
+#### Custom memory allocators
 
 To store strings and the internal structures (entry list, hashtable etc) strpool.h needs to dodynamic allocation by 
 calling `malloc`. Programs might want to keep track of allocations done, or use custom defined pools to allocate memory 
@@ -149,7 +152,7 @@ right type, and access the tracking data.
 If no custom allocator is defined, strpool.h will default to `malloc` and `free` from the C runtime library.
 
 
-### Custom assert
+#### Custom assert
 
 strpool.h makes use of asserts to report usage errors and failed allocation errors. By default, it makes use of the C 
 runtime library `assert` macro, which only executes in debug builds. However, it allows for substituting with your own
@@ -162,7 +165,7 @@ assert function or macro using the following code:
 Note that if you only want the asserts to trigger in debug builds, you must add a check for this in your custom assert.
 
 
-### Custom C runtime function
+#### Custom C runtime function
 
 The library makes use of four additional functions from the C runtime library, and for full flexibility, it allows you 
 to substitute them for your own. Here's an example:
@@ -352,7 +355,7 @@ strpool_free_collated
 
 Releases the memory returned by `strpool_collate`. 
 
-**/
+*/
 
 
 /*

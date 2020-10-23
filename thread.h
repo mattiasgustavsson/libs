@@ -83,8 +83,13 @@ int thread_queue_count( thread_queue_t* queue );
 
 /**
 
+thread.h 
+========
+
+Cross platform threading functions for C/C++.
+
 Example
-=======
+-------
 
 Here's a basic sample program which starts a second thread which just waits and prints a message.
 
@@ -93,29 +98,24 @@ Here's a basic sample program which starts a second thread which just waits and 
 
     #include <stdio.h> // for printf
     
-    int thread_proc( void* user_data)
-        {
+    int thread_proc( void* user_data) {
         thread_timer_t timer;
         thread_timer_init( &timer );
 
         int count = 0;
         thread_atomic_int_t* exit_flag = (thread_atomic_int_t*) user_data;
-        while( thread_atomic_int_load( exit_flag ) == 0 )
-            {
+        while( thread_atomic_int_load( exit_flag ) == 0 ) {
             printf( "Thread... " );
             thread_timer_wait( &timer, 1000000000 ); // sleep for a second
             ++count;
-            }
+        }
 
         thread_timer_term( &timer );
         printf( "Done\n" );
         return count;
-        }
+    }
 
-    int main( int argc, char** argv )
-        {
-        (void) argc, argv;
-        
+    int main( int argc, char** argv ) {        
         thread_atomic_int_t exit_flag;
         thread_atomic_int_store( &exit_flag, 0 );
 
@@ -123,11 +123,10 @@ Here's a basic sample program which starts a second thread which just waits and 
 
         thread_timer_t timer;
         thread_timer_init( &timer );
-        for( int i = 0; i < 5; ++i )
-            {
+        for( int i = 0; i < 5; ++i ) {
             printf( "Main... " );
             thread_timer_wait( &timer, 2000000000 ); // sleep for two seconds
-            }
+        }
         thread_timer_term( &timer );
         
         thread_atomic_int_store( &exit_flag, 1 ); // signal thread to exit
@@ -137,19 +136,19 @@ Here's a basic sample program which starts a second thread which just waits and 
 
         thread_destroy( thread );
         return retval;
-        }
+    }
 
 
 API Documentation
-=================
+-----------------
 
 thread.h is a single-header library, and does not need any .lib files or other binaries, or any build scripts. To use it,
 you just include thread.h to get the API declarations. To get the definitions, you must include thread.h from *one* 
 single C or C++ file, and #define the symbol `THREAD_IMPLEMENTATION` before you do. 
 
 
-Customization
--------------
+### Customization
+
 thread.h allows for specifying the exact type of 64-bit unsigned integer to be used in its API. By default, it is 
 defined as `unsigned long long`, but as this is not a standard type on all compilers, you can redefine it by #defining 
 THREAD_U64 before including thread.h. This is useful if you, for example, use the types from `<stdint.h>` in the rest of 
@@ -512,7 +511,7 @@ thread_queue_count
 Returns the number of elements currently held in a single-producer/single-consumer queue. Be aware that by the time you
 get the count, it might have changed by another thread calling consume or produce, so use with care.
 
-**/
+*/
 
 
 /*

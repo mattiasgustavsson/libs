@@ -48,11 +48,16 @@ void ini_property_value_set( ini_t* ini, int section, int property, char const* 
 
 /**
 
-Examples
-========
+ini.h 
+=====
 
-Loading an ini file and retrieving values
------------------------------------------
+Simple ini-file reader for C/C++.
+
+
+Examples
+--------
+
+#### Loading an ini file and retrieving values
 
     #define INI_IMPLEMENTATION
     #include "ini.h"
@@ -85,9 +90,9 @@ Loading an ini file and retrieving values
         return 0;
         }
 
+-----------------------------------------------------------------------------------------------
 
-Creating a new ini file
------------------------
+#### Creating a new ini file
 
     #define INI_IMPLEMENTATION
     #include "ini.h"
@@ -119,7 +124,7 @@ Creating a new ini file
 
 
 API Documentation
-=================
+-----------------
 
 ini.h is a small library for reading classic .ini files. It is a single-header library, and does not need any .lib files 
 or other binaries, or any build scripts. To use it, you just include ini.h to get the API declarations. To get the 
@@ -127,8 +132,8 @@ definitions, you must include ini.h from *one* single C or C++ file, and #define
 you do. 
 
 
-Customization
--------------
+### Customization
+
 There are a few different things in ini.h which are configurable by #defines. The customizations only affect the 
 implementation, so will only need to be defined in the file where you have the #define INI_IMPLEMENTATION.
 
@@ -136,7 +141,7 @@ Note that if all customizations are utilized, ini.h will include no external fil
 if you need full control over what code is being built.
 
 
-### Custom memory allocators
+#### Custom memory allocators
 
 To store the internal data structures, ini.h needs to do dynamic allocation by calling `malloc`. Programs might want to 
 keep track of allocations done, or use custom defined pools to allocate memory from. ini.h allows for specifying custom 
@@ -158,7 +163,7 @@ right type, and access the tracking data.
 If no custom allocator is defined, ini.h will default to `malloc` and `free` from the C runtime library.
 
 
-### Custom C runtime function
+#### Custom C runtime function
 
 The library makes use of three additional functions from the C runtime library, and for full flexibility, it allows you 
 to substitute them for your own. Here's an example:
@@ -374,7 +379,7 @@ returned by `ini_property_count`. The defined constant `INI_GLOBAL_SECTION` can 
 `length` specifies the number of characters in `value`, which does not have to be zero-terminated. If `length` is zero, 
 the length is determined automatically, but in this case `value` has to be zero-terminated.
 
-**/
+*/
 
 
 /*

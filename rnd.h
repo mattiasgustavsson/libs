@@ -51,8 +51,14 @@ int rnd_xorshift_range( rnd_xorshift_t* xorshift, int min, int max );
 
 /**
 
+rnd.h
+=====
+
+Pseudo-random number generators for C/C++.
+
+
 Example
-=======
+-------
 
 A basic example showing how to use the PCG set of random functions.
 
@@ -62,9 +68,7 @@ A basic example showing how to use the PCG set of random functions.
     #include <stdio.h> // for printf
     #include <time.h> // for time
     
-    int main( int argc, char** argv )
-        {
-        (void) argc, argv;
+    int main( int argc, char** argv ) {
 
         rnd_pcg_t pcg;
         rnd_pcg_seed( &pcg, 0u ); // initialize generator
@@ -72,11 +76,10 @@ A basic example showing how to use the PCG set of random functions.
         // print a handful of random integers
         // these will be the same on every run, as we 
         // seeded the rng with a fixed value
-        for( int i = 0; i < 5; ++i ) 
-            {
+        for( int i = 0; i < 5; ++i ) {
             RND_U32 n = rnd_pcg_next( &pcg );
             printf( "%08x, ", n );
-            }
+        }
         printf( "\n" );
 
         // reseed with a value which is different on each run
@@ -86,36 +89,33 @@ A basic example showing how to use the PCG set of random functions.
 
         // print another handful of random integers
         // these will be different on every run
-        for( int i = 0; i < 5; ++i ) 
-            {
+        for( int i = 0; i < 5; ++i ) {
             RND_U32 n = rnd_pcg_next( &pcg );
             printf( "%08x, ", n );
-            }
+        }
         printf( "\n" );
 
 
         // print a handful of random floats
-        for( int i = 0; i < 5; ++i ) 
-            {
+        for( int i = 0; i < 5; ++i ) {
             float f = rnd_pcg_nextf( &pcg );
             printf( "%f, ", f );
-            }
+        }
         printf( "\n" );
 
         // print random integers in the range 1 to 6
-        for( int i = 0; i < 15; ++i ) 
-            {
+        for( int i = 0; i < 15; ++i ) {
             int r = rnd_pcg_range( &pcg, 1, 6 );
             printf( "%d, ", r );
-            }
+        }
         printf( "\n" );
 
         return 0;
-        }
+    }
 
 
 API Documentation
-=================
+-----------------
 
 rnd.h is a single-header library, and does not need any .lib files or other binaries, or any build scripts. To use it,
 you just include rnd.h to get the API declarations. To get the definitions, you must include rnd.h from *one* single C 
@@ -125,8 +125,8 @@ The library is meant for general-purpose use, such as games and similar apps. It
 cryptography and similar use cases.
 
 
-Customization
--------------
+### Customization
+
 rnd.h allows for specifying the exact type of 32 and 64 bit unsigned integers to be used in its API. By default, these
 default to `unsigned int` and `unsigned long long`, but can be redefined by #defining RND_U32 and RND_U64 respectively
 before including rnd.h. This is useful if you, for example, use the types from `<stdint.h>` in the rest of your program, 
@@ -140,8 +140,7 @@ Note that when customizing the data type, you need to use the same definition in
 as it affect the declarations as well as the definitions.
 
 
-The generators
---------------
+### The generators
 
 The library includes four different generators: PCG, WELL, GameRand and XorShift. They all have different 
 characteristics, and you might want to use them for different things. GameRand is very fast, but does not give a great
@@ -153,38 +152,48 @@ All generators expose their internal state, so it is possible to save this state
 random sequence from the same point.
 
 
-### PCG - Permuted Congruential Generator
+#### PCG - Permuted Congruential Generator
 
 PCG is a family of simple fast space-efficient statistically good algorithms for random number generation. Unlike many 
 general-purpose RNGs, they are also hard to predict.
 
-More information can be found here: http://www.pcg-random.org/
+More information can be found here: 
+
+http://www.pcg-random.org/
 
 
-### WELL - Well Equidistributed Long-period Linear
+#### WELL - Well Equidistributed Long-period Linear
 
 Random number generation, using the WELL algorithm by F. Panneton, P. L'Ecuyer and M. Matsumoto.
-More information in the original paper: http://www.iro.umontreal.ca/~panneton/WELLRNG.html
+More information in the original paper: 
+
+http://www.iro.umontreal.ca/~panneton/WELLRNG.html
 
 This code is originally based on WELL512 C/C++ code written by Chris Lomont (published in Game Programming Gems 7) 
-and placed in the public domain. http://lomont.org/Math/Papers/2008/Lomont_PRNG_2008.pdf
+and placed in the public domain. 
+
+http://lomont.org/Math/Papers/2008/Lomont_PRNG_2008.pdf
 
 
-### GameRand
+#### GameRand
 
 Based on the random number generator by Ian C. Bullard:
+
 http://www.redditmirror.cc/cache/websites/mjolnirstudios.com_7yjlc/mjolnirstudios.com/IanBullard/files/79ffbca75a75720f066d491e9ea935a0-10.html
 
 GameRand is a random number generator based off an "Image of the Day" posted by Stephan Schaem. More information here:
+
 http://www.flipcode.com/archives/07-15-2002.shtml
 
 
-### XorShift 
+#### XorShift 
 
 A random number generator of the type LFSR (linear feedback shift registers). This specific implementation uses the
 XorShift+ variation, and returns 64-bit random numbers.
 
-More information can be found here: https://en.wikipedia.org/wiki/Xorshift
+More information can be found here: 
+
+https://en.wikipedia.org/wiki/Xorshift
 
 
 
@@ -315,7 +324,7 @@ rnd_xorshift_range
 Returns a random integer N in the range: min <= N <= max, from the specified XorShift generator.
 
 
-**/
+*/
 
 
 /*
