@@ -492,7 +492,7 @@ app_input
 
 	app_input_t app_input( app_t* app )
 
-Returns a list of input events which occured since the last call to `app_input`. Each input event can be of one of a 
+Returns a list of input events which occurred since the last call to `app_input`. Each input event can be of one of a 
 list of types, and the `type` field of the `app_input_event_t` struct specifies which type the event is. The `data`
 struct is a union of fields, where only one of them is valid, depending on the value of `type`:
 * APP_INPUT_KEY_DOWN, APP_INPUT_KEY_UP, APP_INPUT_DOUBLE_CLICK - use the `key` field of the `data` union, which contains
