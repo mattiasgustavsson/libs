@@ -69,7 +69,7 @@ void testfw_current_test_assertion_failed( void );
     #define _CRT_SECURE_NO_WARNINGS
     #include <stdio.h>
 
-    #define TESTFW_PRINTF( format, ... ) printf( format, __VA_ARGS__ ) 
+    #define TESTFW_PRINTF( format, ... ) printf( format, ##__VA_ARGS__ ) 
 #endif
 
 #ifdef TESTFW_NO_ANSI
