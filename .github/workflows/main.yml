@@ -11,7 +11,7 @@ jobs:
       - uses: seanmiddleditch/gha-setup-vsdevenv@master
       - name: cstr.h
         run: |
-          cl /Tc source\cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS
+          cl /Tc cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS
   build-windows-tcc:
     runs-on: windows-2019
     steps:
@@ -25,18 +25,18 @@ jobs:
         run: 7z x tcc-0.9.27-win64-bin.zip
       - name: cstr.h
         run: |
-          tcc\tcc -xc source\cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+          tcc\tcc -xc cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
   build-macos:
     runs-on: macOS-latest
     steps:
       - uses: actions/checkout@v1
       - name: cstr.h
         run: |
-          clang -xc source\cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+          clang -xc cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
   build-linux-gcc:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v1
       - name: cstr.h
         run: |
-          gcc -xc source\cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+          gcc -xc cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
