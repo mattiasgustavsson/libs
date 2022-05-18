@@ -258,6 +258,7 @@ void testfw_init( void )
         _CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_FILE );
         _CrtSetReportFile( _CRT_ASSERT, _CRTDBG_FILE_STDOUT );
         _CrtSetReportHook2( _CRT_RPTHOOK_INSTALL, testfw_internal_debug_report_hook );
+        _CrtSetReportHook( testfw_internal_debug_report_hook );
     #endif /* _WIN32 */
     }
 
