@@ -172,6 +172,10 @@ char const* cstri_tokenize( struct cstri_t* cstri, struct cstr_tokenizer_t* toke
 
 #endif /* cstr_h */
 
+#ifdef CSTR_RUN_TESTS
+    #define _CRTDBG_MAP_ALLOC
+    #include <crtdbg.h>
+#endif
 
 /**
 
@@ -2356,13 +2360,13 @@ void test_cstr_tokenize( void ) {
     TESTFW_EXPECTED( strcmp( token4, "tokens" ) == 0 );
     
     char const* token5 = cstr_tokenize( &tokenizer, " ,\t\n" );
-    TESTFW_EXPECTED( !cstr_is_interned( token5 ) );
+    TESTFW_EXPECTED( cstr_is_interned( token5 ) );
     TESTFW_EXPECTED( token5 != NULL );
     TESTFW_EXPECTED( strcmp( token5, "and" ) == 0 );
     
     char const* token6 = cstr_tokenize( &tokenizer, " ,\t\n" );
     TESTFW_EXPECTED( cstr_is_interned( token6 ) );
-    TESTFW_EXPECTED( token6 == NULL );
+    TESTFW_EXPECTED( token6 != NULL );
     TESTFW_EXPECTED( strcmp( token6, "some" ) == 0 );
     
     char const* token7 = cstr_tokenize( &tokenizer, " ,\t\n" );
@@ -2400,7 +2404,9 @@ void test_cstr_tokenize( void ) {
 
 int main( int argc, char** argv ) {
     (void) argc, argv;
+
     TESTFW_INIT();
+
     test_cstr();
     test_cstr_n();
     test_cstr_len();
