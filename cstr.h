@@ -2423,7 +2423,7 @@ int main( int argc, char** argv ) {
     test_cstr_find();
     test_cstr_hash();
     test_cstr_tokenize();
-    //stress_tests();
+    stress_tests();
 
     cstr_reset();
     return TESTFW_SUMMARY();
