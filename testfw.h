@@ -193,6 +193,7 @@ static void testfw_internal_print_progress_divider( char ch, int fail, int total
 
     static int testfw_internal_debug_report_hook( int report_type, char* message, int* return_value ) 
         { 
+        _flushall();
         (void) report_type;
         *return_value = 0; // Don't break to debugger
 
