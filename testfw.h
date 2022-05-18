@@ -451,7 +451,7 @@ void testfw_test_end( char const* filename, char const* funcname, int line )
         testfw_print_test_desc();
         TESTFW_PRINTF( "\n%s%s(%d): %sFAILED:%s\n", TESTFW_ANSI_LIGHT_GREY, testfw_internal_state.current_test.file, 
             testfw_internal_state.current_test.line, TESTFW_ANSI_LIGHT_RED, TESTFW_ANSI_RESET );
-        TESTFW_PRINTF( "\n  %sEXCEPTION( %s%s%s )%s\n", TESTFW_ANSI_LIGHT_GREY, TESTFW_ANSI_WHITE, exception_str, 
+        TESTFW_PRINTF( "\n  %sEXCEPTION( %s%s%s )%s\n", TESTFW_ANSI_CYAN, TESTFW_ANSI_WHITE, exception_str, 
             TESTFW_ANSI_LIGHT_GREY, TESTFW_ANSI_RESET );
         }
 #endif

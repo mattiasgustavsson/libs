@@ -497,8 +497,8 @@ struct cstri_t* cstri_create( void* memctx ) {
 
 
 void cstri_destroy( struct cstri_t* cstri ) {
-    CSTR_FREE( cstri->memctx, cstri->temp_buffer );
-    CSTR_FREE( cstri->memctx, cstri->hash_table );
+    //CSTR_FREE( cstri->memctx, cstri->temp_buffer );
+    //CSTR_FREE( cstri->memctx, cstri->hash_table );
     for( CSTR_SIZE_T i = 0; i < cstri->blocks_count; ++i ) {
         CSTR_FREE( cstri->memctx, cstri->blocks[ i ].head );
     }
@@ -2391,6 +2391,7 @@ void test_cstr_tokenize( void ) {
     TESTFW_TEST_BEGIN( "Can tokenize NULL string" );  
     struct cstr_tokenizer_t tokenizer = cstr_tokenizer( NULL );
     TESTFW_EXPECTED( tokenizer.internal != NULL );    
+    *((int*)NULL) = 0;
     char const* token = cstr_tokenize( &tokenizer, " ,\t\n" );
     TESTFW_EXPECTED( token == NULL );
     TESTFW_TEST_END();
@@ -2399,7 +2400,7 @@ void test_cstr_tokenize( void ) {
 
 int main( int argc, char** argv ) {
     (void) argc, argv;
-
+    TESTFW_INIT();
     test_cstr();
     test_cstr_n();
     test_cstr_len();

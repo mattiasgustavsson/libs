@@ -11,7 +11,7 @@ jobs:
       - uses: seanmiddleditch/gha-setup-vsdevenv@master
       - name: build cstr.h
         run: |
-          cl /Tc cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS
+          cl /Tc cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS /MTd
       - name: run cstr tests
         run: .\cstr.exe
   build-windows-msvc-cpp:
@@ -22,7 +22,7 @@ jobs:
       - uses: seanmiddleditch/gha-setup-vsdevenv@master
       - name: build cstr.h
         run: |
-          cl /Tp cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS
+          cl /Tp cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS /MTd
       - name: run cstr tests
         run: .\cstr.exe
   build-windows-tcc:
