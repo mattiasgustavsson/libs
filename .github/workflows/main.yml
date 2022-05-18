@@ -1,0 +1,42 @@
+name: build
+
+on: [push, pull_request]
+
+jobs:
+  build-windows-msvc:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v1
+        # this runs vcvarsall for us, so we get the MSVC toolchain in PATH.
+      - uses: seanmiddleditch/gha-setup-vsdevenv@master
+      - name: cstr.h
+        run: |
+          cl /Tc source\cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS
+  build-windows-tcc:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v1
+      - uses: robinraju/release-downloader@v1.2
+        with:
+          repository: "mattiasgustavsson/tcc-build"
+          tag: "tcc64"
+          fileName: "tcc-0.9.27-win64-bin.zip"
+      - name: install dependencies
+        run: 7z x tcc-0.9.27-win64-bin.zip
+      - name: cstr.h
+        run: |
+          tcc\tcc -xc source\cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+  build-macos:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: cstr.h
+        run: |
+          clang -xc source\cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+  build-linux-gcc:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - name: cstr.h
+        run: |
+          gcc -xc source\cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
