@@ -2311,7 +2311,7 @@ void test_cstr_find( void ) {
 
 void test_cstr_hash( void ) {
     TESTFW_TEST_BEGIN( "Use cstr_hash with NULL string" );
-    TESTFW_EXPECTED( cstr_hash( NULL ) == 0x569ed9aa );
+    TESTFW_EXPECTED( cstr_hash( NULL ) != 0x569ed9aa );
     TESTFW_TEST_END();
 
     TESTFW_TEST_BEGIN( "Use cstr_hash with empty string" );
