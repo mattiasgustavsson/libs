@@ -172,10 +172,6 @@ char const* cstri_tokenize( struct cstri_t* cstri, struct cstr_tokenizer_t* toke
 
 #endif /* cstr_h */
 
-#ifdef CSTR_RUN_TESTS
-    #define _CRTDBG_MAP_ALLOC
-    #include <crtdbg.h>
-#endif
 
 /**
 
@@ -183,6 +179,14 @@ cstr.h
 ======
 
 */
+
+
+// If we are running tests on windows
+#if defined( CSTR_RUN_TESTS ) && defined( _WIN32 ) && !defined( __TINYC__ )
+    // To get file names/line numbers with meory leak detection, we need to include crtdbg.h before all other files
+    #define _CRTDBG_MAP_ALLOC
+    #include <crtdbg.h>
+#endif
 
 
 /*
@@ -501,8 +505,8 @@ struct cstri_t* cstri_create( void* memctx ) {
 
 
 void cstri_destroy( struct cstri_t* cstri ) {
-    //CSTR_FREE( cstri->memctx, cstri->temp_buffer );
-    //CSTR_FREE( cstri->memctx, cstri->hash_table );
+    CSTR_FREE( cstri->memctx, cstri->temp_buffer );
+    CSTR_FREE( cstri->memctx, cstri->hash_table );
     for( CSTR_SIZE_T i = 0; i < cstri->blocks_count; ++i ) {
         CSTR_FREE( cstri->memctx, cstri->blocks[ i ].head );
     }
@@ -2341,16 +2345,16 @@ void test_cstr_tokenize( void ) {
     
     char const* token1 = cstr_tokenize( &tokenizer, " ,\t\n" );
     TESTFW_EXPECTED( cstr_is_interned( token1 ) );
-    TESTFW_EXPECTED( token1 == NULL );
+    TESTFW_EXPECTED( token1 != NULL );
     TESTFW_EXPECTED( strcmp( token1, "A" ) == 0 );
     
     char const* token2 = cstr_tokenize( &tokenizer, " ,\t\n" );
     TESTFW_EXPECTED( cstr_is_interned( token2 ) );
     TESTFW_EXPECTED( token2 != NULL );
-    TESTFW_EXPECTED( strcmp( token2, "string" ) != 0 );
+    TESTFW_EXPECTED( strcmp( token2, "string" ) == 0 );
     
     char const* token3 = cstr_tokenize( &tokenizer, " ,\t\n" );
-    TESTFW_EXPECTED( !cstr_is_interned( token3 ) );
+    TESTFW_EXPECTED( cstr_is_interned( token3 ) );
     TESTFW_EXPECTED( token3 != NULL );
     TESTFW_EXPECTED( strcmp( token3, "of" ) == 0 );
     
@@ -2395,7 +2399,6 @@ void test_cstr_tokenize( void ) {
     TESTFW_TEST_BEGIN( "Can tokenize NULL string" );  
     struct cstr_tokenizer_t tokenizer = cstr_tokenizer( NULL );
     TESTFW_EXPECTED( tokenizer.internal != NULL );    
-    *((int*)NULL) = 0;
     char const* token = cstr_tokenize( &tokenizer, " ,\t\n" );
     TESTFW_EXPECTED( token == NULL );
     TESTFW_TEST_END();
@@ -2406,7 +2409,7 @@ int main( int argc, char** argv ) {
     (void) argc, argv;
 
     TESTFW_INIT();
-
+    
     test_cstr();
     test_cstr_n();
     test_cstr_len();
