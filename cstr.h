@@ -2337,16 +2337,16 @@ void test_cstr_tokenize( void ) {
     
     char const* token1 = cstr_tokenize( &tokenizer, " ,\t\n" );
     TESTFW_EXPECTED( cstr_is_interned( token1 ) );
-    TESTFW_EXPECTED( token1 != NULL );
+    TESTFW_EXPECTED( token1 == NULL );
     TESTFW_EXPECTED( strcmp( token1, "A" ) == 0 );
     
     char const* token2 = cstr_tokenize( &tokenizer, " ,\t\n" );
     TESTFW_EXPECTED( cstr_is_interned( token2 ) );
     TESTFW_EXPECTED( token2 != NULL );
-    TESTFW_EXPECTED( strcmp( token2, "string" ) == 0 );
+    TESTFW_EXPECTED( strcmp( token2, "string" ) != 0 );
     
     char const* token3 = cstr_tokenize( &tokenizer, " ,\t\n" );
-    TESTFW_EXPECTED( cstr_is_interned( token3 ) );
+    TESTFW_EXPECTED( !cstr_is_interned( token3 ) );
     TESTFW_EXPECTED( token3 != NULL );
     TESTFW_EXPECTED( strcmp( token3, "of" ) == 0 );
     
@@ -2356,13 +2356,13 @@ void test_cstr_tokenize( void ) {
     TESTFW_EXPECTED( strcmp( token4, "tokens" ) == 0 );
     
     char const* token5 = cstr_tokenize( &tokenizer, " ,\t\n" );
-    TESTFW_EXPECTED( cstr_is_interned( token5 ) );
+    TESTFW_EXPECTED( !cstr_is_interned( token5 ) );
     TESTFW_EXPECTED( token5 != NULL );
     TESTFW_EXPECTED( strcmp( token5, "and" ) == 0 );
     
     char const* token6 = cstr_tokenize( &tokenizer, " ,\t\n" );
     TESTFW_EXPECTED( cstr_is_interned( token6 ) );
-    TESTFW_EXPECTED( token6 != NULL );
+    TESTFW_EXPECTED( token6 == NULL );
     TESTFW_EXPECTED( strcmp( token6, "some" ) == 0 );
     
     char const* token7 = cstr_tokenize( &tokenizer, " ,\t\n" );
@@ -2423,7 +2423,7 @@ int main( int argc, char** argv ) {
     test_cstr_find();
     test_cstr_hash();
     test_cstr_tokenize();
-    stress_tests();
+    //stress_tests();
 
     cstr_reset();
     return TESTFW_SUMMARY();

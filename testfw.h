@@ -289,10 +289,10 @@ void testfw_print_test_desc( void )
         TESTFW_PRINTF( "%s\n", testfw_internal_state.current_test.desc ? testfw_internal_state.current_test.desc : 
             "<NO DESCRIPTION>" ); 
         TESTFW_PRINTF( "-------------------------------------------------------------------------------\n" );
-        TESTFW_PRINTF( "%s%s(%d): %s%s\n", TESTFW_ANSI_CYAN, testfw_internal_state.current_test.file, 
+        TESTFW_PRINTF( "%s%s(%d): %s%s\n", TESTFW_ANSI_LIGHT_GREY, testfw_internal_state.current_test.file, 
             testfw_internal_state.current_test.line, TESTFW_ANSI_RESET, testfw_internal_state.current_test.func );
         
-        TESTFW_PRINTF( "%s", TESTFW_ANSI_CYAN );
+        TESTFW_PRINTF( "%s", TESTFW_ANSI_LIGHT_GREY );
         TESTFW_PRINTF( "...............................................................................\n" );
         TESTFW_PRINTF( "%s", TESTFW_ANSI_RESET );
         } 
@@ -449,10 +449,10 @@ void testfw_test_end( char const* filename, char const* funcname, int line )
             }
 
         testfw_print_test_desc();
-        TESTFW_PRINTF( "\n%s%s(%d): %sFAILED:%s\n", TESTFW_ANSI_CYAN, testfw_internal_state.current_test.file, 
+        TESTFW_PRINTF( "\n%s%s(%d): %sFAILED:%s\n", TESTFW_ANSI_LIGHT_GREY, testfw_internal_state.current_test.file, 
             testfw_internal_state.current_test.line, TESTFW_ANSI_LIGHT_RED, TESTFW_ANSI_RESET );
-        TESTFW_PRINTF( "\n  %sEXCEPTION( %s%s%s )%s\n", TESTFW_ANSI_CYAN, TESTFW_ANSI_WHITE, exception_str, 
-            TESTFW_ANSI_CYAN, TESTFW_ANSI_RESET );
+        TESTFW_PRINTF( "\n  %sEXCEPTION( %s%s%s )%s\n", TESTFW_ANSI_LIGHT_GREY, TESTFW_ANSI_WHITE, exception_str, 
+            TESTFW_ANSI_LIGHT_GREY, TESTFW_ANSI_RESET );
         }
 #endif
 
@@ -480,7 +480,7 @@ void testfw_assertion_count_inc( void )
 
 void testfw_print_failure( char const* filename, int line )
     {
-    TESTFW_PRINTF( "\n%s%s(%d): %sFAILED:%s\n", TESTFW_ANSI_CYAN, filename, line, TESTFW_ANSI_LIGHT_RED, 
+    TESTFW_PRINTF( "\n%s%s(%d): %sFAILED:%s\n", TESTFW_ANSI_LIGHT_GREY, filename, line, TESTFW_ANSI_LIGHT_RED, 
         TESTFW_ANSI_RESET );
     }
 
