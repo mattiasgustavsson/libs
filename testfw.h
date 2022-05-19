@@ -244,22 +244,35 @@ static void testfw_internal_print_progress_divider( char ch, int fail, int total
 #endif /* _WIN32 && _DEBUG */
 
 
+#if defined( _WIN32 ) 
+    #include <windows.h>
+#endif
+
+
 void testfw_init( void )
     {
     memset( &testfw_internal_state, 0, sizeof( testfw_internal_state ) );
 
-    #if defined( _WIN32 ) && !defined( __TINYC__ )
-        int flag = _CrtSetDbgFlag( _CRTDBG_REPORT_FLAG ); // Get current flag
-        flag ^= _CRTDBG_LEAK_CHECK_DF; // Turn on leak-checking bit
-        _CrtSetDbgFlag( flag ); // Set flag to the new value
-        _CrtSetReportMode( _CRT_WARN, _CRTDBG_MODE_FILE );
-        _CrtSetReportFile( _CRT_WARN, _CRTDBG_FILE_STDOUT );
-        _CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_FILE );
-        _CrtSetReportFile( _CRT_ERROR, _CRTDBG_FILE_STDOUT );
-        _CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_FILE );
-        _CrtSetReportFile( _CRT_ASSERT, _CRTDBG_FILE_STDOUT );
-        _CrtSetReportHook2( _CRT_RPTHOOK_INSTALL, testfw_internal_debug_report_hook );
-        _CrtSetReportHook( testfw_internal_debug_report_hook );
+    #if defined( _WIN32 ) 
+        #if !defined( __TINYC__ )
+            int flag = _CrtSetDbgFlag( _CRTDBG_REPORT_FLAG ); // Get current flag
+            flag ^= _CRTDBG_LEAK_CHECK_DF; // Turn on leak-checking bit
+            _CrtSetDbgFlag( flag ); // Set flag to the new value
+            _CrtSetReportMode( _CRT_WARN, _CRTDBG_MODE_FILE );
+            _CrtSetReportFile( _CRT_WARN, _CRTDBG_FILE_STDOUT );
+            _CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_FILE );
+            _CrtSetReportFile( _CRT_ERROR, _CRTDBG_FILE_STDOUT );
+            _CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_FILE );
+            _CrtSetReportFile( _CRT_ASSERT, _CRTDBG_FILE_STDOUT );
+            _CrtSetReportHook2( _CRT_RPTHOOK_INSTALL, testfw_internal_debug_report_hook );
+            _CrtSetReportHook( testfw_internal_debug_report_hook );
+        #endif /* __TINYC__ */
+        HANDLE handle = GetStdHandle( STD_OUTPUT_HANDLE );
+        if( handle != INVALID_HANDLE_VALUE ) {
+            DWORD mode = 0;
+            GetConsoleMode( handle, &mode );
+            SetConsoleMode( handle, mode | 0x0004 /*ENABLE_VIRTUAL_TERMINAL_PROCESSING*/ );
+        }
     #endif /* _WIN32 */
     }
 
