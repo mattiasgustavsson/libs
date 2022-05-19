@@ -1,5 +1,5 @@
-![build](https://github.com/mattiasgustavsson/libs/workflows/build/badge.svg)
 [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W1B1W7)
+![build](https://github.com/mattiasgustavsson/libs/workflows/build/badge.svg)
 
 # libs
 Single-file public domain libraries for C/C++ (dual licensed under MIT).
