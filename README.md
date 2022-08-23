@@ -11,3 +11,14 @@ Single-file public domain libraries for C/C++ (dual licensed under MIT).
 * [strpool.h](docs/strpool.md) - Highly efficient string pool for C/C++.
 * [thread.h](docs/thread.md) - Cross platform threading functions for C/C++.
 
+# Installing mgnlibs(vcpkg)
+
+You can download and install mgnlibs using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+
+git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+./bootstrap-vcpkg.sh
+./vcpkg integrate install
+vcpkg install mgnlibs
+
+The mgnlibs port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
