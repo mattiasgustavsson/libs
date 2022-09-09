@@ -576,6 +576,15 @@ struct thread_queue_t
 #ifdef THREAD_IMPLEMENTATION
 #undef THREAD_IMPLEMENTATION
 
+#ifndef THREAD_ASSERT
+    #undef _CRT_NONSTDC_NO_DEPRECATE 
+    #define _CRT_NONSTDC_NO_DEPRECATE 
+    #undef _CRT_SECURE_NO_WARNINGS
+    #define _CRT_SECURE_NO_WARNINGS
+    #include <assert.h>
+    #define THREAD_ASSERT( expression, message ) assert( ( expression ) && ( message ) )
+#endif
+
 
 #if defined( _WIN32 )
 
@@ -591,8 +600,10 @@ struct thread_queue_t
 
     #define _WINSOCKAPI_
     #pragma warning( push )
+    #pragma warning( disable: 4619 ) 
     #pragma warning( disable: 4668 ) // 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
-    #pragma warning( disable: 4255 )
+    #pragma warning( disable: 4768 ) // __declspec attributes before linkage specification are ignored	
+    #pragma warning( disable: 4255 ) // 'function' : no function prototype given: converting '()' to '(void)'
     #include <windows.h>
     #pragma warning( pop )
 
@@ -617,10 +628,6 @@ struct thread_queue_t
     #error Unknown platform.
 #endif
 
-
-#ifndef NDEBUG
-    #include <assert.h>
-#endif
 
 
 thread_id_t thread_current_thread_id( void )
@@ -857,6 +864,7 @@ struct thread_internal_signal_t
             CONDITION_VARIABLE condition;
             int value;
         #else 
+            #pragma message( "Warning: _WIN32_WINNT < 0x0600 - condition variables not available" )
             HANDLE event;
         #endif 
     
@@ -966,10 +974,10 @@ int thread_signal_wait( thread_signal_t* signal, int timeout_ms )
             EnterCriticalSection( &internal->mutex );
             while( internal->value == 0 )
                 {
-                int res = SleepConditionVariableCS( &internal->condition, &internal->mutex, timeout_ms < 0 ? INFINITE : timeout_ms );
+                BOOL res = SleepConditionVariableCS( &internal->condition, &internal->mutex, timeout_ms < 0 ? INFINITE : timeout_ms );
                 if( !res && GetLastError() == ERROR_TIMEOUT ) { timed_out = 1; break; }
                 }
-            if( !timed_out ) internal->value = 0;
+            internal->value = 0;
             LeaveCriticalSection( &internal->mutex );       
             return !timed_out;
         #else 
@@ -1393,18 +1401,19 @@ int thread_queue_produce( thread_queue_t* queue, void* value, int timeout_ms )
     #ifndef NDEBUG
         if( thread_atomic_int_compare_and_swap( &queue->id_produce_is_set, 0, 1 ) == 0 )
             queue->id_produce = thread_current_thread_id();
-        assert( thread_current_thread_id() == queue->id_produce );
+        THREAD_ASSERT( thread_current_thread_id() == queue->id_produce, "thread_queue_produce called from multiple threads" );
     #endif
-    if( thread_atomic_int_load( &queue->count ) == queue->size )
+    while( thread_atomic_int_load( &queue->count ) == queue->size )  // TODO: fix signal so that this can be an "if" instead of "while"
         {
         if( timeout_ms == 0 ) return 0;
-        thread_signal_wait( &queue->space_open, timeout_ms == THREAD_QUEUE_WAIT_INFINITE ? THREAD_SIGNAL_WAIT_INFINITE : timeout_ms );
+        if( thread_signal_wait( &queue->space_open, timeout_ms == THREAD_QUEUE_WAIT_INFINITE ? THREAD_SIGNAL_WAIT_INFINITE : timeout_ms ) == 0 )
+            return 0;
         }
     int tail = thread_atomic_int_inc( &queue->tail );
     queue->values[ tail % queue->size ] = value;
     if( thread_atomic_int_inc( &queue->count ) == 0 )
         thread_signal_raise( &queue->data_ready );
-    return 0;
+    return 1;
     }
 
 
@@ -1413,12 +1422,13 @@ void* thread_queue_consume( thread_queue_t* queue, int timeout_ms )
     #ifndef NDEBUG
         if( thread_atomic_int_compare_and_swap( &queue->id_consume_is_set, 0, 1 ) == 0 )
             queue->id_consume = thread_current_thread_id();
-        assert( thread_current_thread_id() == queue->id_consume );
+        THREAD_ASSERT( thread_current_thread_id() == queue->id_consume, "thread_queue_consume called from multiple threads" );
     #endif
-    if( thread_atomic_int_load( &queue->count ) == 0 )
+    while( thread_atomic_int_load( &queue->count ) == 0 ) // TODO: fix signal so that this can be an "if" instead of "while"
         {
         if( timeout_ms == 0 ) return NULL;
-        thread_signal_wait( &queue->data_ready, THREAD_SIGNAL_WAIT_INFINITE );
+        if( thread_signal_wait( &queue->data_ready, timeout_ms == THREAD_QUEUE_WAIT_INFINITE ? THREAD_SIGNAL_WAIT_INFINITE : timeout_ms ) == 0 )
+            return NULL;
         }
     int head = thread_atomic_int_inc( &queue->head );
     void* retval = queue->values[ head % queue->size ];

@@ -747,6 +747,9 @@ details.
     #define APP_GL_ARRAY_BUFFER 0x8892
     #define APP_GL_TEXTURE_2D 0x0de1
     #define APP_GL_TEXTURE0 0x84c0
+    #define APP_GL_CLAMP 0x2900
+    #define APP_GL_TEXTURE_WRAP_S 0x2802
+    #define APP_GL_TEXTURE_WRAP_T 0x2803
     #define APP_GL_TEXTURE_MIN_FILTER 0x2801
     #define APP_GL_TEXTURE_MAG_FILTER 0x2800
     #define APP_GL_NEAREST 0x2600
@@ -782,6 +785,9 @@ details.
     #define APP_GL_ARRAY_BUFFER GL_ARRAY_BUFFER
     #define APP_GL_TEXTURE_2D GL_TEXTURE_2D
     #define APP_GL_TEXTURE0 GL_TEXTURE0
+    #define APP_GL_CLAMP GL_CLAMP
+    #define APP_GL_TEXTURE_WRAP_S GL_TEXTURE_WRAP_S
+    #define APP_GL_TEXTURE_WRAP_T GL_TEXTURE_WRAP_T
     #define APP_GL_TEXTURE_MIN_FILTER GL_TEXTURE_MIN_FILTER
     #define APP_GL_TEXTURE_MAG_FILTER GL_TEXTURE_MAG_FILTER
     #define APP_GL_NEAREST GL_NEAREST
@@ -975,6 +981,8 @@ static int app_internal_opengl_init( app_t* app, struct app_internal_opengl_t* g
     gl->BindTexture( APP_GL_TEXTURE_2D, gl->texture );
     gl->TexParameteri( APP_GL_TEXTURE_2D, APP_GL_TEXTURE_MIN_FILTER, APP_GL_NEAREST );
     gl->TexParameteri( APP_GL_TEXTURE_2D, APP_GL_TEXTURE_MAG_FILTER, APP_GL_NEAREST );
+    gl->TexParameteri( APP_GL_TEXTURE_2D, APP_GL_TEXTURE_WRAP_S, APP_GL_CLAMP );
+    gl->TexParameteri( APP_GL_TEXTURE_2D, APP_GL_TEXTURE_WRAP_T, APP_GL_CLAMP );
 
     return 1;
     }
