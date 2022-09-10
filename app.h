@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-app.h - v0.4 - Small cross-platform base framework for graphical apps.
+app.h - v0.5 - Small cross-platform base framework for graphical apps.
 
 Do this:
     #define APP_IMPLEMENTATION
@@ -187,9 +187,6 @@ Here's a basic sample program which starts a windowed app and plots random pixel
         return app_run( app_proc, NULL, NULL, NULL, NULL );
     }
 
-    // pass-through so the program will build with either /SUBSYSTEM:WINDOWS or /SUBSYSTEN:CONSOLE
-    extern "C" int __stdcall WinMain( struct HINSTANCE__*, struct HINSTANCE__*, char*, int ) { return main( __argc, __argv ); }
-
 
 
 API Documentation
@@ -199,13 +196,16 @@ app.h is a single-header library, and does not need any .lib files or other bina
 you just include app.h to get the API declarations. To get the definitions, you must include app.h from *one* single
 C or C++ file, and #define the symbol `APP_IMPLEMENTATION` before you do.
 
-As app.h is meant to be a cross platform library (even though only windows is supported right now), you must also
-define which platform you are running on, like this:
+As app.h is a cross platform library, you must also define which platform you are running on, like this for Windows:
 
     #define APP_IMPLEMENTATION
     #define APP_WINDOWS
     #include "app.h"
 
+Or like this for other platforms:
+    #define APP_IMPLEMENTATION
+    #define APP_SDL
+    #include "app.h"
 
 ### Customization
 
@@ -712,6 +712,7 @@ details.
 #ifdef APP_IMPLEMENTATION
 #undef APP_IMPLEMENTATION
 
+#include <stdlib.h>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //    OPENGL CODE - Shared between platform implementations
@@ -760,10 +761,16 @@ details.
     #define APP_GL_COLOR_BUFFER_BIT 0x00004000
     #define APP_GL_TRIANGLE_FAN 0x0006
 
-#elif defined( APP_SDL )
+#elif defined( APP_SDL ) || defined( APP_WASM )
 
-    #include <GL/glew.h>
-    #include <SDL2/SDL_opengl.h>
+    #if defined( APP_WASM )
+        #include <wajic_gl.h>
+        #define WA_CORO_IMPLEMENT_NANOSLEEP
+        #include <wajic_coro.h>
+    #else
+        #include <GL/glew.h>
+        #include "SDL_opengl.h"
+    #endif
     #define APP_GLCALLTYPE GLAPIENTRY
     typedef GLuint APP_GLuint;
     typedef GLsizei APP_GLsizei;
@@ -785,7 +792,11 @@ details.
     #define APP_GL_ARRAY_BUFFER GL_ARRAY_BUFFER
     #define APP_GL_TEXTURE_2D GL_TEXTURE_2D
     #define APP_GL_TEXTURE0 GL_TEXTURE0
-    #define APP_GL_CLAMP GL_CLAMP
+    #if defined( APP_WASM )
+        #define APP_GL_CLAMP GL_CLAMP_TO_EDGE
+    #else
+        #define APP_GL_CLAMP GL_CLAMP
+    #endif
     #define APP_GL_TEXTURE_WRAP_S GL_TEXTURE_WRAP_S
     #define APP_GL_TEXTURE_WRAP_T GL_TEXTURE_WRAP_T
     #define APP_GL_TEXTURE_MIN_FILTER GL_TEXTURE_MIN_FILTER
@@ -800,7 +811,7 @@ details.
 
 #else
 
-    #error Undefined platform. Define APP_WINDOWS, APP_SDL or APP_NULL.
+    #error Undefined platform. Define APP_WINDOWS, APP_SDL, APP_WASM or APP_NULL.
     #define APP_GLCALLTYPE
     typedef int APP_GLuint;
     typedef int APP_GLsizei;
@@ -877,7 +888,11 @@ static int app_internal_opengl_init( app_t* app, struct app_internal_opengl_t* g
     gl->window_height = window_height;
 
     char const* vs_source =
+    #ifdef APP_WASM
+        "precision highp float;\n"
+    #else
         "#version 120\n"
+    #endif
         "attribute vec4 pos;"
         "varying vec2 uv;"
         ""
@@ -889,7 +904,11 @@ static int app_internal_opengl_init( app_t* app, struct app_internal_opengl_t* g
         ;
 
     char const* fs_source =
+    #ifdef APP_WASM
+        "precision highp float;\n"
+    #else
         "#version 120\n"
+    #endif
         "varying vec2 uv;"
         ""
         "uniform sampler2D texture;"
@@ -976,7 +995,10 @@ static int app_internal_opengl_init( app_t* app, struct app_internal_opengl_t* g
     gl->VertexAttribPointer( 0, 4, APP_GL_FLOAT, APP_GL_FALSE, 4 * sizeof( APP_GLfloat ), 0 );
 
     gl->GenTextures( 1, &gl->texture );
-    gl->Enable( APP_GL_TEXTURE_2D );
+    #ifndef APP_WASM
+        // This enable call is not necessary when using fragment shaders, avoid logged warnings in WebGL
+        gl->Enable( APP_GL_TEXTURE_2D );
+    #endif
     gl->ActiveTexture( APP_GL_TEXTURE0 );
     gl->BindTexture( APP_GL_TEXTURE_2D, gl->texture );
     gl->TexParameteri( APP_GL_TEXTURE_2D, APP_GL_TEXTURE_MIN_FILTER, APP_GL_NEAREST );
@@ -1181,13 +1203,16 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
 #pragma warning( disable: 4917 ) // 'declarator' : a GUID can only be associated with a class, interface or namespace
 #define _NTDDSCM_H_ /* Fixes the error of mismatched pragma warning push/pop in Windows SDK 10.0.17763.0 */
 #include <windows.h>
-#include <shlobj.h>
+//#include <shlobj.h>
 #pragma warning( pop )
 #ifndef __TINYC__
 #pragma comment( lib, "user32.lib" )
 #pragma comment( lib, "gdi32.lib" )
 #pragma comment( lib, "winmm.lib" )
 #pragma comment( lib, "shell32.lib" )
+#else
+#pragma comment( lib, "user32")
+#pragma comment( lib, "gdi32")
 #endif
 
 #include <time.h>
@@ -1631,6 +1656,8 @@ static LRESULT CALLBACK app_internal_wndproc( HWND hwnd, UINT message, WPARAM wp
         case WM_LBUTTONDBLCLK:
             input_event.type = APP_INPUT_DOUBLE_CLICK; input_event.data.key = APP_KEY_LBUTTON;
             app_internal_add_input_event( app, &input_event );
+            input_event.type = APP_INPUT_KEY_DOWN; input_event.data.key = APP_KEY_LBUTTON;
+            app_internal_add_input_event(app, &input_event);
             break;
         case WM_RBUTTONDOWN:
             input_event.type = APP_INPUT_KEY_DOWN; input_event.data.key = APP_KEY_RBUTTON;
@@ -1643,6 +1670,8 @@ static LRESULT CALLBACK app_internal_wndproc( HWND hwnd, UINT message, WPARAM wp
         case WM_RBUTTONDBLCLK:
             input_event.type = APP_INPUT_DOUBLE_CLICK; input_event.data.key = APP_KEY_RBUTTON;
             app_internal_add_input_event( app, &input_event );
+            input_event.type = APP_INPUT_KEY_DOWN; input_event.data.key = APP_KEY_RBUTTON;
+            app_internal_add_input_event(app, &input_event);
             break;
         case WM_MBUTTONDOWN:
             input_event.type = APP_INPUT_KEY_DOWN; input_event.data.key = APP_KEY_MBUTTON;
@@ -1655,6 +1684,8 @@ static LRESULT CALLBACK app_internal_wndproc( HWND hwnd, UINT message, WPARAM wp
         case WM_MBUTTONDBLCLK:
             input_event.type = APP_INPUT_DOUBLE_CLICK; input_event.data.key = APP_KEY_MBUTTON;
             app_internal_add_input_event( app, &input_event );
+            input_event.type = APP_INPUT_KEY_DOWN; input_event.data.key = APP_KEY_MBUTTON;
+            app_internal_add_input_event(app, &input_event);
             break;
         case WM_XBUTTONDOWN:
             input_event.type = APP_INPUT_KEY_DOWN; input_event.data.key = HIWORD( wparam ) == 1 ? APP_KEY_XBUTTON1 :APP_KEY_XBUTTON2;
@@ -1667,6 +1698,8 @@ static LRESULT CALLBACK app_internal_wndproc( HWND hwnd, UINT message, WPARAM wp
         case WM_XBUTTONDBLCLK:
             input_event.type = APP_INPUT_DOUBLE_CLICK; input_event.data.key = HIWORD( wparam ) == 1 ? APP_KEY_XBUTTON1 :APP_KEY_XBUTTON2;
             app_internal_add_input_event( app, &input_event );
+            input_event.type = APP_INPUT_KEY_DOWN; input_event.data.key = HIWORD( wparam ) == 1 ? APP_KEY_XBUTTON1 :APP_KEY_XBUTTON2;
+            app_internal_add_input_event(app, &input_event);
             break;
         case WM_SYSKEYDOWN:
         case WM_KEYDOWN:
@@ -1838,22 +1871,11 @@ static LRESULT CALLBACK app_internal_wndproc( HWND hwnd, UINT message, WPARAM wp
                 app->GetRawInputDataPtr( (HRAWINPUT) lparam, RID_INPUT, &raw, &size, sizeof( RAWINPUTHEADER ) );
                 if( raw.header.dwType == RIM_TYPEMOUSE )
                     {
-                    float dx = (float) raw.data.mouse.lLastX;
-                    float dy = (float) raw.data.mouse.lLastY;
-
-                    float const microsoft_mouse_dpi_constant = 400.0f; // Apparently, most mice are meant to run at 400 DPI. This might be wrong.
-                    dx /= microsoft_mouse_dpi_constant;
-                    dy /= microsoft_mouse_dpi_constant;
-
-                    if( app->input_count > 0 && app->input_events[ app->input_count - 1 ].type == APP_INPUT_MOUSE_DELTA )
+                    if( ( raw.data.mouse.usFlags & 1 ) == MOUSE_MOVE_RELATIVE)
                         {
-                        app_input_event_t* event = &app->input_events[ app->input_count - 1 ];
-                        event->data.mouse_delta.x += dx;
-                        event->data.mouse_delta.y += dy;
-                     }
-                    else
-                        {
-                     input_event.type = APP_INPUT_MOUSE_DELTA;
+                        float dx = (float) raw.data.mouse.lLastX;
+                        float dy = (float) raw.data.mouse.lLastY;
+                        input_event.type = APP_INPUT_MOUSE_DELTA;
                         input_event.data.mouse_delta.x = dx;
                         input_event.data.mouse_delta.y = dy;
                         app_internal_add_input_event( app, &input_event );
@@ -2024,7 +2046,7 @@ static void app_internal_app_default_cursor( app_t* app )
 int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx, void* fatalctx )
     {
     int result = 0xff;
-    SetProcessDPIAware();
+    //SetProcessDPIAware();
 
     // Init app instance
     app_t* app = (app_t*) APP_MALLOC( memctx, sizeof( app_t ) );
@@ -2129,14 +2151,16 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
     #pragma warning( pop )
 
 
-    int const APP_MOD_NOREPEAT = 0x4000;
-    RegisterHotKey( app->hwnd, VK_VOLUME_MUTE, APP_MOD_NOREPEAT, VK_VOLUME_MUTE );
-    RegisterHotKey( app->hwnd, VK_VOLUME_DOWN, APP_MOD_NOREPEAT, VK_VOLUME_DOWN );
-    RegisterHotKey( app->hwnd, VK_VOLUME_UP, APP_MOD_NOREPEAT, VK_VOLUME_UP );
-    RegisterHotKey( app->hwnd, VK_MEDIA_NEXT_TRACK, APP_MOD_NOREPEAT, VK_MEDIA_NEXT_TRACK );
-    RegisterHotKey( app->hwnd, VK_MEDIA_PREV_TRACK, APP_MOD_NOREPEAT, VK_MEDIA_PREV_TRACK );
-    RegisterHotKey( app->hwnd, VK_MEDIA_STOP, APP_MOD_NOREPEAT, VK_MEDIA_STOP );
-    RegisterHotKey( app->hwnd, VK_MEDIA_PLAY_PAUSE, APP_MOD_NOREPEAT, VK_MEDIA_PLAY_PAUSE );
+    #ifdef APP_ENABLE_MEDIA_KEYS
+        int const APP_MOD_NOREPEAT = 0x4000;
+        RegisterHotKey( app->hwnd, VK_VOLUME_MUTE, APP_MOD_NOREPEAT, VK_VOLUME_MUTE );
+        RegisterHotKey( app->hwnd, VK_VOLUME_DOWN, APP_MOD_NOREPEAT, VK_VOLUME_DOWN );
+        RegisterHotKey( app->hwnd, VK_VOLUME_UP, APP_MOD_NOREPEAT, VK_VOLUME_UP );
+        RegisterHotKey( app->hwnd, VK_MEDIA_NEXT_TRACK, APP_MOD_NOREPEAT, VK_MEDIA_NEXT_TRACK );
+        RegisterHotKey( app->hwnd, VK_MEDIA_PREV_TRACK, APP_MOD_NOREPEAT, VK_MEDIA_PREV_TRACK );
+        RegisterHotKey( app->hwnd, VK_MEDIA_STOP, APP_MOD_NOREPEAT, VK_MEDIA_STOP );
+        RegisterHotKey( app->hwnd, VK_MEDIA_PLAY_PAUSE, APP_MOD_NOREPEAT, VK_MEDIA_PLAY_PAUSE );
+    #endif
 
     ShowWindow( app->hwnd, SW_HIDE );
     // Windows specific OpenGL initialization
@@ -2885,33 +2909,17 @@ void app_window_size( app_t* app, int width, int height )
 
 int app_window_width( app_t* app )
     {
-    int width = app->windowed_w;
-    if( app->screenmode == APP_SCREENMODE_WINDOW )
-        {
-        WINDOWPLACEMENT placement;
-        placement.length = sizeof( placement );
-        GetWindowPlacement( app->hwnd, &placement );
-        width = placement.rcNormalPosition.right - placement.rcNormalPosition.left;
-        }
-    RECT r = app_internal_rect( 0, 0, 0, 0 );
-    AdjustWindowRect( &r, APP_WINDOWED_WS_STYLE | WS_VISIBLE, FALSE );
-    return width - ( r.right - r.left );
+    RECT r;
+    GetClientRect( app->hwnd, &r );
+    return r.right - r.left;
     }
 
 
 int app_window_height( app_t* app )
     {
-    int height = app->windowed_h;
-    if( app->screenmode == APP_SCREENMODE_WINDOW )
-        {
-        WINDOWPLACEMENT placement;
-        placement.length = sizeof( placement );
-        GetWindowPlacement( app->hwnd, &placement );
-        height = placement.rcNormalPosition.bottom - placement.rcNormalPosition.top;
-        }
-    RECT r = app_internal_rect( 0, 0, 0, 0 );
-    AdjustWindowRect( &r, APP_WINDOWED_WS_STYLE | WS_VISIBLE, FALSE );
-    return height - ( r.bottom - r.top );
+    RECT r;
+    GetClientRect( app->hwnd, &r );
+    return r.bottom - r.top;
     }
 
 
@@ -3323,7 +3331,7 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
 #include <string.h>
 #include <stdio.h>
 
-#include <SDL2/SDL.h>
+#include "SDL.h"
 
 #ifndef APP_FATAL_ERROR
     #define APP_FATAL_ERROR( ctx, message ) { \
@@ -3370,6 +3378,8 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
     app->screenmode = APP_SCREENMODE_FULLSCREEN;
 
     int result = 0xff;
+    int display_count;
+    int glres;
 
     if( SDL_Init( SDL_INIT_EVERYTHING ) < 0 )
         {
@@ -3381,18 +3391,17 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
-    app->window = SDL_CreateWindow( "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
+    app->window = SDL_CreateWindow( "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
     if( !app->window )
     {
 //        printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() );
         goto init_failed;
     }
 
-    SDL_HideWindow( app->window );
     app->has_focus = 1;
     app->volume = 256;
 
-    int display_count = SDL_GetNumVideoDisplays();
+    display_count = SDL_GetNumVideoDisplays();
     for( int i = 0; i < display_count; ++i )
         {
         SDL_Rect r;
@@ -3448,7 +3457,7 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
         app->gl.GetShaderInfoLog = glGetShaderInfoLog;
     #endif
 
-    int glres = app_internal_opengl_init( app, &app->gl, app->interpolation, 640, 400 );
+    glres = app_internal_opengl_init( app, &app->gl, app->interpolation, 640, 400 );
     if( !glres )
         {
         app_fatal_error( app, "OpenGL init fail" );
@@ -3632,12 +3641,28 @@ app_state_t app_yield( app_t* app )
             input_event.data.key = app_internal_scancode_to_appkey( app, e.key.keysym.scancode );
             app_internal_add_input_event( app, &input_event );
             }
+        else if( e.type == SDL_TEXTINPUT )
+            {
+            app_input_event_t input_event;
+            char *c;
+            input_event.type = APP_INPUT_CHAR;
+            for ( c = e.text.text; *c; c++ )
+                {
+                input_event.data.char_code = *c;
+                app_internal_add_input_event( app, &input_event );
+                }
+            }
         else if( e.type == SDL_MOUSEMOTION )
             {
             app_input_event_t input_event;
             input_event.type = APP_INPUT_MOUSE_MOVE;
             input_event.data.mouse_pos.x = e.motion.x;
             input_event.data.mouse_pos.y = e.motion.y;
+            app_internal_add_input_event( app, &input_event );
+
+            input_event.type = APP_INPUT_MOUSE_DELTA;
+            input_event.data.mouse_pos.x = e.motion.xrel;
+            input_event.data.mouse_pos.y = e.motion.yrel;
             app_internal_add_input_event( app, &input_event );
             }
         else if( e.type == SDL_MOUSEBUTTONDOWN )
@@ -4019,8 +4044,707 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
     }
 
 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//    WEBASSEMBLY
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#elif defined( APP_WASM )
+
+#ifndef APP_MALLOC
+    #include <stdlib.h>
+    #if defined(__cplusplus)
+        #define APP_MALLOC( ctx, size ) ( ::malloc( size ) )
+        #define APP_FREE( ctx, ptr ) ( ::free( ptr ) )
+    #else
+        #define APP_MALLOC( ctx, size ) ( malloc( size ) )
+        #define APP_FREE( ctx, ptr ) ( free( ptr ) )
+    #endif
+#endif
+
+#include <string.h>
+#include <stdio.h>
+#include <stdbool.h>
+
+WAJIC(void, app_js_print, (const char* msg),
+    {
+    WA.print(MStrGet(msg) + "\n");
+    })
+
+#ifndef APP_FATAL_ERROR
+    #define APP_FATAL_ERROR( ctx, message ) { app_js_print(message); abort(); }
+#endif
+
+struct app_t
+    {
+    void* memctx;
+    void* logctx;
+    void* fatalctx;
+    struct app_internal_opengl_t gl;
+    int has_focus;
+    app_interpolation_t interpolation;
+
+    void (*sound_callback)( APP_S16* sample_pairs, int sample_pairs_count, void* user_data );
+    void* sound_user_data;
+    int sound_buffer_size;
+    APP_S16* sound_buffer;
+    int volume;
+
+    app_input_event_t input_events[ 1024 ];
+    int input_count;
+    int pointer_x;
+    int pointer_y;
+    };
+
+
+// The javascript event handling keeps a simple buffer of events with 3 ints per event
+// The first int is the event id, followed by two arguments (not all events use both arguments)
+//   EVENT ID                  ARG 1           ARG 2
+//   1 WINDOW_SIZE_CHANGED     w               h
+//   2 WINDOW_FOCUS            gained/lost
+//   3 KEY                     down/up         scancode
+//   4 CHAR                    charcode
+//   5 MOUSE_MOTION            x               y
+//   6 MOUSE_BUTTON            down/up         buttonnum
+//   7 MOUSE_WHEEL             wheel
+
+WAJIC_WITH_INIT(
+(
+    var evts = [], evtcursor = 0, dpr = window.devicePixelRatio||1, canvas, aspect_ratio, fullscreen;
+    var update_canvas_size = (w)=>
+    {
+        var h = (w *= dpr)/aspect_ratio|0;
+        if (w<32 || h<32 || (w == canvas.width && h == canvas.height) || fullscreen) return;
+        canvas.width = w;
+        canvas.height = h;
+        evts.push(1, canvas.width, canvas.height);
+    };
+    var alias = (el, a, b, c)=>
+    {
+        return el[a+c] || el['moz'+b+c] || el['webkit'+b+c] || el['ms'+b+c];
+    };
+),
+void, app_js_setup_canvas, (int* out_width, int* out_height),
+{
+    canvas = WA.canvas;
+    if (!canvas.height) { canvas.width = 1024; canvas.height = 576; }
+    MU32[out_width>>2] = canvas.clientWidth;
+    MU32[out_height>>2] = canvas.clientHeight;
+    aspect_ratio = canvas.width/canvas.height;
+
+    var cancelEvent = (e)=>{ if (e.preventDefault) e.preventDefault(true); else if (e.stopPropagation) e.stopPropagation(true); else e.stopped = true; };
+    var documtEvent = (t, f, a)=>{ document.addEventListener(t, f); if (!a) { documtEvent('moz'+t, f, 1); documtEvent('webkit'+t, f, 1); documtEvent('ms'+t, f, 1); } };
+    var windowEvent = (t, f)=>{ window.addEventListener(t, f, true); };
+    var canvasEvent = (t, f)=>{ canvas.addEventListener(t, f, {capture:true,passive:false}); };
+    windowEvent('resize', ()=>{ update_canvas_size(canvas.clientWidth); });
+    windowEvent('focus', ()=>{ evts.push(2, 1, 0); });
+    windowEvent('blur',  ()=>{ evts.push(2, (fullscreen?1:0), 0); });
+    windowEvent('keydown', (e)=>
+    {
+        evts.push(3, 1, e.keyCode);
+        if (e.key.length == 1 && e.key.charCodeAt() < 128 && !e.ctrlKey) evts.push(4, e.key.charCodeAt(), 0);
+        cancelEvent(e);
+    });
+    windowEvent('keyup',   (e)=>
+    {
+        evts.push(3, 0, e.keyCode);
+        cancelEvent(e);
+    });
+    canvasEvent('mousemove', (e)=>
+    {
+        evts.push(5,
+            (e.offsetX * canvas.width /  canvas.clientWidth )|0,
+            (e.offsetY * canvas.height / canvas.clientHeight)|0);
+        cancelEvent(e);
+    });
+    var buttons = 0;
+    canvasEvent('mousedown', (e)=>
+    {
+        var btn = (1<<e.button);
+        if (buttons & btn) return;
+        buttons |= btn;
+        evts.push(6, 1, e.button);
+        cancelEvent(e);
+    });
+    windowEvent('mouseup', (e)=>
+    {
+        var btn = (1<<e.button);
+        if (!(buttons & btn)) return;
+        buttons &= ~btn;
+        evts.push(6, 0, e.button);
+        cancelEvent(e);
+    });
+    canvasEvent('wheel', (e)=>{ evts.push(7, e.deltaY); cancelEvent(e); });
+    documtEvent('fullscreenchange', ()=>
+    {
+        fullscreen = alias(document,'f','F','ullscreenElement') || alias(document,'f','F','ullScreenElement');
+        if (fullscreen)
+        {
+            canvas.orgS = canvas.style.cssText;
+            canvas.orgW = canvas.clientWidth;
+            canvas.style.cssText = 'background:black';
+            canvas.height = screen.height * dpr;
+            canvas.width = screen.width * dpr;
+            evts.push(1, canvas.width, canvas.height);
+        }
+        else if (canvas.orgS)
+        {
+            canvas.style.cssText = canvas.orgS;
+            update_canvas_size(canvas.orgW);
+        }
+    });
+    WA.SetFullscreen = (f)=>
+    {
+        if (!f == !fullscreen) return;
+        var el = (f ? WA.canvas : document);
+        var fn = (f ? (alias(el,'r','R','equestFullscreen') || alias(el,'r','R','equestFullScreen')) : (alias(el,'e','E','xitFullscreen') || alias(el,'c','C','ancelFullScreen')));
+        if (fn) fn.apply(el, []);
+    };
+})
+
+WAJIC(void, app_js_screenmode, (int fullscreen),
+{
+    WA.SetFullscreen(fullscreen);
+})
+
+WAJIC(void, app_js_set_aspect_ratio, (int* width, int* height),
+{
+    var new_aspect_ratio = MU32[width>>2]/MU32[height>>2];
+    if (Math.abs(new_aspect_ratio - aspect_ratio) > 0.01)
+    {
+        aspect_ratio = new_aspect_ratio;
+        update_canvas_size(canvas.clientWidth);
+    }
+    MU32[width>>2] = canvas.width;
+    MU32[height>>2] = canvas.height;
+})
+
+WAJIC(int, app_js_get_event, (int evt[3]),
+{
+    if (evtcursor >= evts.length)
+    {
+        evts.length = evtcursor = 0;
+        return 0;
+    }
+    MU32[(evt>>2)+0] = evts[evtcursor++];
+    MU32[(evt>>2)+1] = evts[evtcursor++];
+    MU32[(evt>>2)+2] = evts[evtcursor++];
+    return 1;
+})
+
+
+int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx, void* fatalctx )
+    {
+    app_t* app = (app_t*) APP_MALLOC( memctx, sizeof( app_t ) );
+    memset( app, 0, (int)sizeof( app_t ) );
+    app->memctx = memctx;
+    app->logctx = logctx;
+    app->fatalctx = fatalctx;
+    app->interpolation = APP_INTERPOLATION_LINEAR;
+
+    app->gl.CreateShader = glCreateShader;
+    app->gl.ShaderSource = glShaderSource;
+    app->gl.CompileShader = glCompileShader;
+    app->gl.GetShaderiv = glGetShaderiv;
+    app->gl.CreateProgram = glCreateProgram;
+    app->gl.AttachShader = glAttachShader;
+    app->gl.BindAttribLocation = glBindAttribLocation;
+    app->gl.LinkProgram = glLinkProgram;
+    app->gl.GetProgramiv = glGetProgramiv;
+    app->gl.GenBuffers = glGenBuffers;
+    app->gl.BindBuffer = glBindBuffer;
+    app->gl.EnableVertexAttribArray = glEnableVertexAttribArray;
+    app->gl.VertexAttribPointer = glVertexAttribPointer;
+    app->gl.GenTextures = glGenTextures;
+    app->gl.Enable = glEnable;
+    app->gl.ActiveTexture = glActiveTexture;
+    app->gl.BindTexture = glBindTexture;
+    app->gl.TexParameteri = glTexParameteri;
+    app->gl.DeleteBuffers = glDeleteBuffers;
+    app->gl.DeleteTextures = glDeleteTextures;
+    app->gl.BufferData = glBufferData;
+    app->gl.UseProgram = glUseProgram;
+    app->gl.Uniform1i = glUniform1i;
+    app->gl.Uniform3f = glUniform3f;
+    app->gl.GetUniformLocation = glGetUniformLocation;
+    app->gl.TexImage2D = glTexImage2D;
+    app->gl.ClearColor = glClearColor;
+    app->gl.Clear = glClear;
+    app->gl.DrawArrays = glDrawArrays;
+    app->gl.Viewport = glViewport;
+    app->gl.DeleteShader = glDeleteShader;
+    app->gl.DeleteProgram = glDeleteProgram;
+    #ifdef APP_REPORT_SHADER_ERRORS
+        app->gl.GetShaderInfoLog = glGetShaderInfoLog;
+    #endif
+
+    int result = 0xff;
+
+    app_js_setup_canvas( &app->gl.window_width, &app->gl.window_height );
+    glSetupCanvasContext( 1, 0, 0, 0 );
+    glViewport( 0, 0, app->gl.window_width, app->gl.window_height );
+
+    app->has_focus = 1;
+    app->volume = 256;
+
+    int glres = app_internal_opengl_init( app, &app->gl, app->interpolation, app->gl.window_width, app->gl.window_height );
+    if( !glres )
+        {
+        app_fatal_error( app, "OpenGL init fail" );
+        goto init_failed;
+        }
+    WaCoroInitNew( NULL, NULL, NULL, 0 );
+    result = app_proc( app, user_data );
+
+init_failed:
+
+    APP_FREE( memctx, app );
+    return result;
+    }
+
+
+static void app_internal_add_input_event( app_t* app, app_input_event_t* event )
+    {
+    if( app->has_focus )
+        {
+        if( app->input_count < sizeof( app->input_events ) / sizeof( *app->input_events ) )
+            app->input_events[ app->input_count++ ] = *event;
+        }
+    }
+
+
+static app_key_t app_internal_scancode_to_appkey( app_t* app, int scancode )
+    {
+    static const app_key_t map[] = {
+        APP_KEY_INVALID,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_CANCEL,      APP_KEY_INVALID,     APP_KEY_INVALID,   APP_KEY_HELP,         APP_KEY_INVALID,         APP_KEY_BACK,            APP_KEY_TAB,
+        APP_KEY_RETURN,         APP_KEY_INVALID,             APP_KEY_CLEAR,        APP_KEY_RETURN,      APP_KEY_RETURN,      APP_KEY_INVALID,   APP_KEY_LSHIFT,       APP_KEY_LCONTROL,        APP_KEY_LMENU,           APP_KEY_PAUSE,
+        APP_KEY_CAPITAL,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_INVALID,     APP_KEY_HANJA,     APP_KEY_INVALID,      APP_KEY_ESCAPE,          APP_KEY_INVALID,         APP_KEY_INVALID,
+        APP_KEY_INVALID,        APP_KEY_MODECHANGE,          APP_KEY_SPACE,        APP_KEY_PRIOR,       APP_KEY_NEXT,        APP_KEY_END,       APP_KEY_HOME,         APP_KEY_LEFT,            APP_KEY_UP,              APP_KEY_RIGHT,
+        APP_KEY_DOWN,           APP_KEY_SELECT,              APP_KEY_SNAPSHOT,     APP_KEY_EXEC,        APP_KEY_SNAPSHOT,    APP_KEY_INSERT,    APP_KEY_DELETE,       APP_KEY_HELP,            APP_KEY_0,               APP_KEY_1,
+        APP_KEY_2,              APP_KEY_3,                   APP_KEY_4,            APP_KEY_5,           APP_KEY_6,           APP_KEY_7,         APP_KEY_8,            APP_KEY_9,               APP_KEY_INVALID,         APP_KEY_OEM_1,
+        APP_KEY_INVALID,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_INVALID,     APP_KEY_A,         APP_KEY_B,            APP_KEY_C,               APP_KEY_D,               APP_KEY_E,
+        APP_KEY_F,              APP_KEY_G,                   APP_KEY_H,            APP_KEY_I,           APP_KEY_J,           APP_KEY_K,         APP_KEY_L,            APP_KEY_M,               APP_KEY_N,               APP_KEY_O,
+        APP_KEY_P,              APP_KEY_Q,                   APP_KEY_R,            APP_KEY_S,           APP_KEY_T,           APP_KEY_U,         APP_KEY_V,            APP_KEY_W,               APP_KEY_X,               APP_KEY_Y,
+        APP_KEY_Z,              APP_KEY_LWIN,                APP_KEY_RWIN,         APP_KEY_APPS,        APP_KEY_INVALID,     APP_KEY_SLEEP,     APP_KEY_NUMPAD0,      APP_KEY_NUMPAD1,         APP_KEY_NUMPAD2,         APP_KEY_NUMPAD3,
+        APP_KEY_NUMPAD4,        APP_KEY_NUMPAD5,             APP_KEY_NUMPAD6,      APP_KEY_NUMPAD7,     APP_KEY_NUMPAD8,     APP_KEY_NUMPAD9,   APP_KEY_MULTIPLY,     APP_KEY_ADD,             APP_KEY_OEM_COMMA,       APP_KEY_SUBTRACT,
+        APP_KEY_INVALID,        APP_KEY_DIVIDE,              APP_KEY_F1,           APP_KEY_F2,          APP_KEY_F3,          APP_KEY_F4,        APP_KEY_F5,           APP_KEY_F6,              APP_KEY_F7,              APP_KEY_F8,
+        APP_KEY_F9,             APP_KEY_F10,                 APP_KEY_F11,          APP_KEY_F12,         APP_KEY_F13,         APP_KEY_F14,       APP_KEY_F15,          APP_KEY_F16,             APP_KEY_F17,             APP_KEY_F18,
+        APP_KEY_F19,            APP_KEY_F20,                 APP_KEY_F21,          APP_KEY_F22,         APP_KEY_F23,         APP_KEY_F24,       APP_KEY_INVALID,      APP_KEY_INVALID,         APP_KEY_INVALID,         APP_KEY_INVALID,
+        APP_KEY_INVALID,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_NUMLOCK,     APP_KEY_SCROLL,    APP_KEY_RETURN,       APP_KEY_INVALID,         APP_KEY_INVALID,         APP_KEY_INVALID,
+        APP_KEY_INVALID,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_INVALID,     APP_KEY_INVALID,   APP_KEY_INVALID,      APP_KEY_INVALID,         APP_KEY_INVALID,         APP_KEY_INVALID,
+        APP_KEY_LSHIFT,         APP_KEY_RSHIFT,              APP_KEY_LCONTROL,     APP_KEY_RCONTROL,    APP_KEY_LMENU,       APP_KEY_RMENU,     APP_KEY_BROWSER_BACK, APP_KEY_BROWSER_FORWARD, APP_KEY_BROWSER_REFRESH, APP_KEY_BROWSER_STOP,
+        APP_KEY_BROWSER_SEARCH, APP_KEY_BROWSER_FAVORITES,   APP_KEY_BROWSER_HOME, APP_KEY_VOLUME_MUTE, APP_KEY_VOLUME_DOWN, APP_KEY_VOLUME_UP, APP_KEY_INVALID,      APP_KEY_INVALID,         APP_KEY_RETURN,          APP_KEY_INVALID,
+        APP_KEY_LAUNCH_MAIL,    APP_KEY_LAUNCH_MEDIA_SELECT, APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_INVALID,     APP_KEY_INVALID,   APP_KEY_OEM_1,        APP_KEY_INVALID,         APP_KEY_OEM_COMMA,       APP_KEY_OEM_MINUS,
+        APP_KEY_OEM_PERIOD,     APP_KEY_OEM_2,               APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_INVALID,     APP_KEY_INVALID,   APP_KEY_INVALID,      APP_KEY_INVALID,         APP_KEY_INVALID,         APP_KEY_INVALID,
+        APP_KEY_INVALID,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_INVALID,     APP_KEY_INVALID,   APP_KEY_INVALID,      APP_KEY_INVALID,         APP_KEY_INVALID,         APP_KEY_INVALID,
+        APP_KEY_INVALID,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_INVALID,     APP_KEY_INVALID,   APP_KEY_INVALID,      APP_KEY_INVALID,         APP_KEY_INVALID,         APP_KEY_OEM_4,
+        APP_KEY_OEM_5,          APP_KEY_OEM_6,               APP_KEY_OEM_7,        APP_KEY_INVALID,     APP_KEY_LWIN,        APP_KEY_RMENU,     APP_KEY_INVALID,      APP_KEY_INVALID,         APP_KEY_INVALID,         APP_KEY_INVALID,
+        APP_KEY_INVALID,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_INVALID,     APP_KEY_INVALID,   APP_KEY_INVALID,      APP_KEY_INVALID,         APP_KEY_INVALID,         APP_KEY_INVALID,
+        APP_KEY_INVALID,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_HANGUL,      APP_KEY_INVALID,   APP_KEY_INVALID,      APP_KEY_CRSEL,           APP_KEY_EXSEL,           APP_KEY_INVALID,
+        APP_KEY_INVALID,        APP_KEY_INVALID,             APP_KEY_INVALID,      APP_KEY_INVALID,     APP_KEY_CLEAR,       APP_KEY_INVALID, };
+
+    if( scancode < 0 || scancode >= sizeof( map ) / sizeof( *map ) ) return APP_KEY_INVALID;
+    return (app_key_t) map[ scancode ];
+    }
+
+
+app_state_t app_yield( app_t* app )
+    {
+    int evt[3];
+    app_input_event_t input_event;
+    app_key_t key;
+    while (app_js_get_event( evt ))
+    {
+        switch (evt[0])
+            {
+            //         EVENT ID                ARG 1           ARG 2
+            case 1: // WINDOW_SIZE_CHANGED     w               h
+                if( evt[1] != app->gl.window_width || evt[2] != app->gl.window_height )
+                    {
+                    app_internal_opengl_resize( &app->gl, evt[1], evt[2] );
+                    }
+                break;
+            case 2: // WINDOW_FOCUS            gained/lost
+                app->has_focus = evt[1];
+                break;
+            case 3: // KEY                     down/up         scancode
+                input_event.type = (evt[1] ? APP_INPUT_KEY_DOWN : APP_INPUT_KEY_UP);
+                key = app_internal_scancode_to_appkey( app, evt[2] );
+                if( key == APP_KEY_LCONTROL || key == APP_KEY_RCONTROL )
+                    {
+                    input_event.data.key = APP_KEY_CONTROL;
+                    app_internal_add_input_event( app, &input_event );
+                    }
+                else if( key == APP_KEY_LSHIFT || key == APP_KEY_RSHIFT )
+                    {
+                    input_event.data.key = APP_KEY_SHIFT;
+                    app_internal_add_input_event( app, &input_event );
+                    }
+                else if( key == APP_KEY_LMENU || key == APP_KEY_RMENU )
+                    {
+                    input_event.data.key = APP_KEY_MENU;
+                    app_internal_add_input_event( app, &input_event );
+                    }
+                input_event.data.key = key;
+                app_internal_add_input_event( app, &input_event );
+                break;
+            case 4: // CHAR                    charcode
+                input_event.type = APP_INPUT_CHAR;
+                input_event.data.char_code = (char) evt[1];
+                app_internal_add_input_event( app, &input_event );
+                break;
+            case 5: // MOUSE_MOTION            x               y
+                input_event.type = APP_INPUT_MOUSE_MOVE;
+                app->pointer_x = input_event.data.mouse_pos.x = evt[1];
+                app->pointer_y = input_event.data.mouse_pos.y = evt[2];
+                app_internal_add_input_event( app, &input_event );
+                break;
+            case 6: // MOUSE_BUTTON            down/up         buttonnum
+                input_event.type = (evt[1] ? APP_INPUT_KEY_DOWN : APP_INPUT_KEY_UP);
+                if( evt[2] == 0 )
+                    input_event.data.key = APP_KEY_LBUTTON;
+                else if( evt[2] == 1 )
+                    input_event.data.key = APP_KEY_RBUTTON;
+                else if( evt[2] == 2 )
+                    input_event.data.key = APP_KEY_MBUTTON;
+                else if( evt[2] == 3 )
+                    input_event.data.key = APP_KEY_XBUTTON1;
+                else if( evt[2] == 4 )
+                    input_event.data.key = APP_KEY_XBUTTON2;
+                else
+                    break;
+                app_internal_add_input_event( app, &input_event );
+                break;
+            case 7: // MOUSE_WHEEL             wheel
+                {
+                float const microsoft_mouse_wheel_constant = 120.0f;
+                float wheel_delta = ( (float) evt[1] ) / microsoft_mouse_wheel_constant;
+                if( app->input_count > 0 && app->input_events[ app->input_count - 1 ].type == APP_INPUT_SCROLL_WHEEL )
+                    {
+                    app_input_event_t* event = &app->input_events[ app->input_count - 1 ];
+                    event->data.wheel_delta += wheel_delta;
+                    }
+                else
+                    {
+                    input_event.type = APP_INPUT_SCROLL_WHEEL;
+                    input_event.data.wheel_delta = wheel_delta;
+                    app_internal_add_input_event( app, &input_event );
+                    }
+                } break;
+        }
+    }
+    return APP_STATE_NORMAL;
+    }
+
+
+void app_cancel_exit( app_t* app ) { /* NOT IMPLEMENTED */ }
+void app_title( app_t* app, char const* title ) { /* NOT IMPLEMENTED */ }
+char const* app_cmdline( app_t* app ) { /* NOT IMPLEMENTED */ return NULL; }
+char const* app_filename( app_t* app ) { /* NOT IMPLEMENTED */ return NULL; }
+char const* app_userdata( app_t* app ) { /* NOT IMPLEMENTED */ return NULL; }
+char const* app_appdata( app_t* app ) { /* NOT IMPLEMENTED */ return NULL; }
+
+
+WAJIC_WITH_INIT(
+(
+    var start_time = Date.now();
+),
+APP_U32, app_js_get_ticks, (),
+{
+    return Date.now() - start_time;
+})
+
+APP_U64 app_time_count( app_t* app )
+    {
+    return (APP_U64)app_js_get_ticks()*1000;
+    }
+
+
+APP_U64 app_time_freq( app_t* app )
+    {
+    return (APP_U64)1000*1000;
+    }
+
+
+void app_log( app_t* app, app_log_level_t level, char const* message )
+    {
+    printf("[APP] [%d] %s\n", (int)level, message);
+    }
+
+
+void app_fatal_error( app_t* app, char const* message )
+    {
+    APP_FATAL_ERROR( app->fatalctx, message );
+    }
+
+
+void app_pointer( app_t* app, int width, int height, APP_U32* pixels_abgr, int hotspot_x, int hotspot_y ) { /* NOT IMPLEMENTED */ }
+void app_pointer_default( app_t* app, int* width, int* height, APP_U32* pixels_abgr, int* hotspot_x, int* hotspot_y ) { /* NOT IMPLEMENTED */ }
+void app_pointer_pos( app_t* app, int x, int y ) { /* NOT IMPLEMENTED */ }
+
+
+int app_pointer_x( app_t* app )
+    {
+    return app->pointer_x;
+    }
+
+
+int app_pointer_y( app_t* app )
+    {
+    return app->pointer_y;
+    }
+
+
+void app_pointer_limit( app_t* app, int x, int y, int width, int height ) { /* NOT IMPLEMENTED */ }
+void app_pointer_limit_off( app_t* app ) { /* NOT IMPLEMENTED */ }
+
+void app_interpolation( app_t* app, app_interpolation_t interpolation )
+    {
+    if( interpolation == app->interpolation ) return;
+    app->interpolation = interpolation;
+
+    app_internal_opengl_interpolation( &app->gl, interpolation );
+    }
+
+
+void app_screenmode( app_t* app, app_screenmode_t screenmode )
+    {
+    app_js_screenmode( (int) ( screenmode == APP_SCREENMODE_FULLSCREEN ) );
+    }
+
+
+void app_window_size( app_t* app, int width, int height )
+    {
+    // view size is controlled by the browser, we only control the display aspect ratio
+    app_js_set_aspect_ratio( &width, &height );
+    if( width != app->gl.window_width || height != app->gl.window_height )
+        {
+        app_internal_opengl_resize( &app->gl, width, height );
+        }
+    }
+
+
+int app_window_width( app_t* app )
+    {
+    return app->gl.window_width;
+    }
+
+
+int app_window_height( app_t* app )
+    {
+    return app->gl.window_height;
+    }
+
+
+void app_window_pos( app_t* app, int x, int y ) { /* NOT IMPLEMENTED */ }
+
+
+int app_window_x( app_t* app )
+    {
+    return 0;
+    }
+
+
+int app_window_y( app_t* app )
+    {
+    return 0;
+    }
+
+
+app_displays_t app_displays( app_t* app )
+    {
+    // Fixed display for web
+    static app_display_t display;
+    display.id[0] = '\0';
+    display.x = 0;
+    display.y = 0;
+    display.width = 1920;
+    display.height = 1080;
+    app_displays_t displays;
+    displays.count = 1;
+    displays.displays = &display;
+    return displays;
+    }
+
+
+WAJIC_WITH_INIT(
+(
+    var audio_ctx, audio_done = 0, audio_latency = 2048, audio_bufs = [], audio_bufidx = 0, audio_miss = 0;
+    var start_audio = ()=>
+    {
+        if (audio_ctx.state == 'running') return 1;
+        audio_done = audio_ctx.currentTime;
+        audio_ctx.resume();
+    };
+    var set_start_audio_event = (name)=>document.addEventListener(name, start_audio, {once:true});
+),
+int, app_js_audio_needed, (bool has_focus),
+{
+    if (!audio_ctx)
+    {
+        if (audio_ctx === false) return 0;
+        try { (audio_ctx = new (alias(window,"","",'AudioContext'))()).createBuffer(1,1,44100).getChannelData(0); } catch (e) { }
+        if (!audio_ctx) { audio_ctx = false; WA.print('Warning: WebAudio not supported\n'); return 0; }
+        for (var i = 0; i != 10; i++) audio_bufs[i] = audio_ctx.createBuffer(2, 512, 44100);
+        if (!start_audio()) { set_start_audio_event('click'); set_start_audio_event('touchstart'); set_start_audio_event('keydown'); }
+    }
+    if (!start_audio() && !start_audio()) return 0;
+    var ct = audio_ctx.currentTime;
+    if (audio_done < ct)
+    {
+        if (has_focus && (audio_miss += 2) > 7)
+        {
+            audio_latency += 512;
+            audio_miss = 0;
+        }
+        audio_done = ct;
+    }
+    else if (audio_miss > 1) audio_miss--;
+    return ((ct - audio_done) * 44100 + .5 + audio_latency * (has_focus ? 1 : 2) + 511)>>9;
+})
+
+WAJIC(int, app_js_audio_push, (APP_S16* sample_pairs, int volume),
+{
+    sample_pairs = new Int16Array(MU8.buffer).subarray(sample_pairs>>1);
+    var buf = audio_bufs[audio_bufidx = ((audio_bufidx + 1) % 10)];
+    var left = buf.getChannelData(0), right = buf.getChannelData(1);
+    var f = (1 / 32768) * (volume / 255);
+    for (var i = 0; i != 512; i++)
+    {
+        left[i] = sample_pairs[i*2] * f;
+        right[i] = sample_pairs[i*2+1] * f;
+    }
+    var source = audio_ctx.createBufferSource();
+    source.connect(audio_ctx.destination);
+    source.buffer = buf;
+    source[source.start ? 'start' : 'noteOn'](0.005+audio_done);
+    audio_done += 512/44100;
+})
+
+
+void app_present( app_t* app, APP_U32 const* pixels_xbgr, int width, int height, APP_U32 mod_xbgr, APP_U32 border_xbgr )
+    {
+    if( pixels_xbgr ) app_internal_opengl_present( &app->gl, pixels_xbgr, width, height, mod_xbgr, border_xbgr );
+    for( int needed = app_js_audio_needed(app->has_focus); app->sound_callback && needed--;)
+        {
+        app->sound_callback(app->sound_buffer, 512, app->sound_user_data);
+        app_js_audio_push(app->sound_buffer, app->volume);
+        }
+    if( app->has_focus )
+        WaCoroWaitAnimFrame();
+    else
+        WaCoroSleep(50);
+    }
+
+
+void app_sound( app_t* app, int sample_pairs_count, void (*sound_callback)( APP_S16* sample_pairs, int sample_pairs_count, void* user_data ), void* user_data )
+    {
+    app->sound_callback = sound_callback;
+    app->sound_user_data = user_data;
+    if( sound_callback && !app->sound_buffer )
+        app->sound_buffer = (APP_S16*) APP_MALLOC( app->memctx, sizeof(APP_S16) * 512 * 2 );
+    else if( !sound_callback && app->sound_buffer )
+        APP_FREE( app->memctx, app->sound_buffer );
+    }
+
+
+void app_sound_volume( app_t* app, float volume )
+    {
+    int v = (int) ( volume * 256.0f );
+    app->volume = v < 0 ? 0 : v > 256 ? 256 : v;
+    }
+
+
+app_input_t app_input( app_t* app )
+    {
+    app_input_t input;
+    input.events = app->input_events;
+    input.count = app->input_count;
+    app->input_count = 0;
+    return input;
+    }
+
+
+void app_coordinates_window_to_bitmap( app_t* app, int width, int height, int* x, int* y )
+    {
+    if( width == 0 || height == 0 ) return;
+    if( app->interpolation == APP_INTERPOLATION_LINEAR )
+        {
+        float hscale = app->gl.window_width / (float) width;
+        float vscale = app->gl.window_height / (float) height;
+        float pixel_scale = hscale < vscale ? hscale : vscale;
+        if( pixel_scale > 0.0f )
+            {
+            float hborder = ( app->gl.window_width - pixel_scale * width ) / 2.0f;
+            float vborder = ( app->gl.window_height - pixel_scale * height ) / 2.0f;
+            *x -= (int)( hborder );
+            *y -= (int)( vborder );
+            *x = (int)( *x / pixel_scale );
+            *y = (int)( *y / pixel_scale );
+            }
+        else
+            {
+            *x = 0;
+            *y = 0;
+            }
+        }
+    else
+        {
+        int hscale = app->gl.window_width / width;
+        int vscale = app->gl.window_height / height;
+        int pixel_scale = pixel_scale = hscale < vscale ? hscale : vscale;
+        pixel_scale = pixel_scale < 1 ? 1 : pixel_scale;
+        int hborder = ( app->gl.window_width - pixel_scale * width ) / 2;
+        int vborder = ( app->gl.window_height - pixel_scale * height ) / 2;
+        *x -= (int)( hborder );
+        *y -= (int)( vborder );
+        *x = (int)( *x / pixel_scale );
+        *y = (int)( *y / pixel_scale );
+        }
+    }
+
+
+void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x, int* y )
+    {
+    if( app->interpolation == APP_INTERPOLATION_LINEAR )
+        {
+        float hscale = app->gl.window_width / (float) width;
+        float vscale = app->gl.window_height / (float) height;
+        float pixel_scale = hscale < vscale ? hscale : vscale;
+        if( pixel_scale > 0.0f )
+            {
+            float hborder = ( app->gl.window_width - pixel_scale * width ) / 2.0f;
+            float vborder = ( app->gl.window_height - pixel_scale * height ) / 2.0f;
+            *x = (int)( *x * pixel_scale );
+            *y = (int)( *y * pixel_scale );
+            *x += (int)( hborder );
+            *y += (int)( vborder );
+            }
+        else
+            {
+            *x = 0;
+            *y = 0;
+            }
+        }
+    else
+        {
+        int hscale = app->gl.window_width / width;
+        int vscale = app->gl.window_height / height;
+        int pixel_scale = pixel_scale = hscale < vscale ? hscale : vscale;
+        pixel_scale = pixel_scale < 1 ? 1 : pixel_scale;
+        int hborder = ( app->gl.window_width - pixel_scale * width ) / 2;
+        int vborder = ( app->gl.window_height - pixel_scale * height ) / 2;
+        *x = (int)( *x * pixel_scale );
+        *y = (int)( *y * pixel_scale );
+        *x += (int)( hborder );
+        *y += (int)( vborder );
+        }
+    }
+
+
 #else
-    #error Undefined platform. Define APP_WINDOWS, APP_SDL or APP_NULL.
+    #error Undefined platform. Define APP_WINDOWS, APP_SDL, APP_WASM or APP_NULL.
 #endif
 
 
