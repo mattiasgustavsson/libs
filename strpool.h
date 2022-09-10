@@ -1222,7 +1222,7 @@ char* strpool_collate( strpool_t const* pool, int* count )
     for( int i = 0; i < pool->entry_count; ++i )
         {
         int len = pool->entries[ i ].length + 1;
-        char* src = pool->entries[ i ].data += 2 * sizeof( STRPOOL_U32 );
+        char* src = pool->entries[ i ].data + 2 * sizeof( STRPOOL_U32 );
         STRPOOL_MEMCPY( ptr, src, (size_t) len );
         ptr += len;
         }
