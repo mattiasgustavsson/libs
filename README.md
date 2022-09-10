@@ -1,3 +1,5 @@
+![build](https://github.com/mattiasgustavsson/libs/workflows/build/badge.svg)
+
 # libs
 Single-file public domain libraries for C/C++ (dual licensed under MIT).
 
