@@ -1,0 +1,79 @@
+name: build
+
+on: [push, pull_request]
+
+jobs:
+  build-windows-msvc:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v1
+        # this runs vcvarsall for us, so we get the MSVC toolchain in PATH.
+      - uses: seanmiddleditch/gha-setup-vsdevenv@master
+      - name: build cstr.h
+        run: |
+          cl /Tc cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS /MTd
+      - name: run cstr tests
+        run: .\cstr.exe
+  build-windows-msvc-cpp:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v1
+        # this runs vcvarsall for us, so we get the MSVC toolchain in PATH.
+      - uses: seanmiddleditch/gha-setup-vsdevenv@master
+      - name: build cstr.h
+        run: |
+          cl /Tp cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS /MTd
+      - name: run cstr tests
+        run: .\cstr.exe
+  build-windows-tcc:
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v1
+      - uses: robinraju/release-downloader@v1.2
+        with:
+          repository: "mattiasgustavsson/tcc-build"
+          tag: "tcc64"
+          fileName: "tcc-0.9.27-win64-bin.zip"
+      - name: install dependencies
+        run: 7z x tcc-0.9.27-win64-bin.zip
+      - name: build cstr.h
+        run: |
+          tcc\tcc -xc cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+      - name: run cstr tests
+        run: .\cstr.exe
+  build-macos:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: build cstr.h
+        run: |
+          clang -xc cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+      - name: run cstr tests
+        run: ./a.out
+  build-macos-cpp:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: build cstr.h
+        run: |
+          clang -xc++ cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+      - name: run cstr tests
+        run: ./a.out
+  build-linux-gcc:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - name: build cstr.h
+        run: |
+          gcc -xc cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+      - name: run cstr tests
+        run: ./a.out
+  build-linux-gcc-cpp:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - name: build cstr.h
+        run: |
+          gcc -xc++ cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
+      - name: run cstr tests
+        run: ./a.out
