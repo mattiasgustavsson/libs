@@ -419,7 +419,7 @@ struct strpool_t
     #define _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_SECURE_NO_WARNINGS
     #include <assert.h>
-    #define STRPOOL_ASSERT( x ) assert( x )
+    #define STRPOOL_ASSERT( expression, message ) assert( ( expression ) && ( message ) )
 #endif
 
 #ifndef STRPOOL_MEMSET
@@ -541,14 +541,14 @@ static int strpool_internal_add_block( strpool_t* pool, int size )
         pool->block_capacity *= 2;
         strpool_internal_block_t* new_blocks = (strpool_internal_block_t*) STRPOOL_MALLOC( pool->memctx, 
             pool->block_capacity * sizeof( *pool->blocks ) );
-        STRPOOL_ASSERT( new_blocks );
+        STRPOOL_ASSERT( new_blocks, "Allocation failed" );
         STRPOOL_MEMCPY( new_blocks, pool->blocks, pool->block_count * sizeof( *pool->blocks ) );
         STRPOOL_FREE( pool->memctx, pool->blocks );
         pool->blocks = new_blocks;
         }
     pool->blocks[ pool->block_count ].capacity = size;
     pool->blocks[ pool->block_count ].data = (char*) STRPOOL_MALLOC( pool->memctx, (size_t) size );
-    STRPOOL_ASSERT( pool->blocks[ pool->block_count ].data );
+    STRPOOL_ASSERT( pool->blocks[ pool->block_count ].data, "Allocation failed" );
     pool->blocks[ pool->block_count ].tail = pool->blocks[ pool->block_count ].data;
     pool->blocks[ pool->block_count ].free_list = -1;
     return pool->block_count++;
@@ -562,7 +562,7 @@ void strpool_init( strpool_t* pool, strpool_config_t const* config )
     pool->memctx = config->memctx;
     pool->ignore_case = config->ignore_case;
 
-    STRPOOL_ASSERT( config->counter_bits + config->index_bits <= 64 );
+    STRPOOL_ASSERT( config->counter_bits + config->index_bits <= 64, "Total bit count exceeds 64" );
     pool->counter_shift = config->index_bits;
     pool->counter_mask = ( 1ULL << (STRPOOL_U64) config->counter_bits ) - 1;
     pool->index_mask = ( 1ULL << (STRPOOL_U64) config->index_bits ) - 1;
@@ -589,17 +589,17 @@ void strpool_init( strpool_t* pool, strpool_config_t const* config )
     
     pool->hash_table = (strpool_internal_hash_slot_t*) STRPOOL_MALLOC( pool->memctx, 
         pool->hash_capacity * sizeof( *pool->hash_table ) );
-    STRPOOL_ASSERT( pool->hash_table );
+    STRPOOL_ASSERT( pool->hash_table, "Allocation failed" );
     STRPOOL_MEMSET( pool->hash_table, 0, pool->hash_capacity * sizeof( *pool->hash_table ) );
     pool->entries = (strpool_internal_entry_t*) STRPOOL_MALLOC( pool->memctx, 
         pool->entry_capacity * sizeof( *pool->entries ) );
-    STRPOOL_ASSERT( pool->entries );
+    STRPOOL_ASSERT( pool->entries, "Allocation failed" );
     pool->handles = (strpool_internal_handle_t*) STRPOOL_MALLOC( pool->memctx, 
         pool->handle_capacity * sizeof( *pool->handles ) );
-    STRPOOL_ASSERT( pool->handles );
+    STRPOOL_ASSERT( pool->handles, "Allocation failed" );
     pool->blocks = (strpool_internal_block_t*) STRPOOL_MALLOC( pool->memctx, 
         pool->block_capacity * sizeof( *pool->blocks ) );
-    STRPOOL_ASSERT( pool->blocks );
+    STRPOOL_ASSERT( pool->blocks, "Allocation failed" );
 
     pool->current_block = strpool_internal_add_block( pool, pool->block_size );
     }
@@ -619,14 +619,14 @@ void strpool_term( strpool_t* pool )
         printf( "\n" );
         printf( "BLOCK: %d\n", i );
         printf( "Capacity: %d\n", pool->blocks[ i ].capacity );
-        printf( "Free: [ %d ]", pool->blocks[ i ].capacity - ( pool->blocks[ i ].tail - pool->blocks[ i ].data ) );
+        printf( "Free: [ %d ]", (int)( pool->blocks[ i ].capacity - ( pool->blocks[ i ].tail - pool->blocks[ i ].data ) ) );
         int fl = pool->blocks[ i ].free_list;
         int count = 0;
         int size = 0;
         int total = 0;
         while( fl >= 0 )
             {
-            strpool_free_block_t* free_entry = (strpool_free_block_t*) ( pool->blocks[ i ].data + fl );
+            strpool_internal_free_block_t* free_entry = (strpool_internal_free_block_t*) ( pool->blocks[ i ].data + fl );
             total += free_entry->size;
             if( size == 0 ) { size = free_entry->size; }
             if( size != free_entry->size )
@@ -677,16 +677,16 @@ void strpool_defrag( strpool_t* pool )
         ( pool->initial_entry_capacity * 2 ) : (int)strpool_internal_pow2ceil( (STRPOOL_U32)hash_capacity );
     strpool_internal_hash_slot_t* hash_table = (strpool_internal_hash_slot_t*) STRPOOL_MALLOC( pool->memctx, 
         hash_capacity * sizeof( *hash_table ) );
-    STRPOOL_ASSERT( hash_table );
+    STRPOOL_ASSERT( hash_table, "Allocation failed" );
     STRPOOL_MEMSET( hash_table, 0, hash_capacity * sizeof( *hash_table ) );
 
     char* data = (char*) STRPOOL_MALLOC( pool->memctx, (size_t) data_capacity );
-    STRPOOL_ASSERT( data );
+    STRPOOL_ASSERT( data, "Allocation failed" );
     int capacity = count < pool->initial_entry_capacity ? 
         pool->initial_entry_capacity : (int)strpool_internal_pow2ceil( (STRPOOL_U32)count );
     strpool_internal_entry_t* entries = (strpool_internal_entry_t*) STRPOOL_MALLOC( pool->memctx, 
         capacity * sizeof( *entries ) );
-    STRPOOL_ASSERT( entries );
+    STRPOOL_ASSERT( entries, "Allocation failed" );
     int index = 0;
     char* tail = data;
     for( int i = 0; i < pool->entry_count; ++i )
@@ -701,7 +701,7 @@ void strpool_defrag( strpool_t* pool )
             int slot = base_slot;
             while( hash_table[ slot ].hash_key )
                 slot = (slot + 1 ) & ( hash_capacity - 1 );
-            STRPOOL_ASSERT( hash );
+            STRPOOL_ASSERT( hash, "Invalid hash" );
             hash_table[ slot ].hash_key = hash;
             hash_table[ slot ].entry_index = index;
             ++hash_table[ base_slot ].base_count;
@@ -726,7 +726,7 @@ void strpool_defrag( strpool_t* pool )
         STRPOOL_FREE( pool->memctx, pool->blocks );
         pool->blocks = (strpool_internal_block_t*) STRPOOL_MALLOC( pool->memctx, 
             pool->initial_block_capacity * sizeof( *pool->blocks ) );
-        STRPOOL_ASSERT( pool->blocks );
+        STRPOOL_ASSERT( pool->blocks, "Allocation failed" );
         }
     pool->block_capacity = pool->initial_block_capacity;
     pool->block_count = 1;
@@ -835,7 +835,7 @@ static void strpool_internal_expand_hash_table( strpool_t* pool )
 
     pool->hash_table = (strpool_internal_hash_slot_t*) STRPOOL_MALLOC( pool->memctx, 
         pool->hash_capacity * sizeof( *pool->hash_table ) );
-    STRPOOL_ASSERT( pool->hash_table );
+    STRPOOL_ASSERT( pool->hash_table, "Allocation failed" );
     STRPOOL_MEMSET( pool->hash_table, 0, pool->hash_capacity * sizeof( *pool->hash_table ) );
 
     for( int i = 0; i < old_capacity; ++i )
@@ -847,7 +847,7 @@ static void strpool_internal_expand_hash_table( strpool_t* pool )
             int slot = base_slot;
             while( pool->hash_table[ slot ].hash_key )
                 slot = ( slot + 1 ) & ( pool->hash_capacity - 1 );
-            STRPOOL_ASSERT( hash_key );
+            STRPOOL_ASSERT( hash_key, "Invalid hash" );
             pool->hash_table[ slot ].hash_key = hash_key;
             pool->hash_table[ slot ].entry_index = old_table[ i ].entry_index;  
             pool->entries[ pool->hash_table[ slot ].entry_index ].hash_slot = slot; 
@@ -864,7 +864,7 @@ static void strpool_internal_expand_entries( strpool_t* pool )
     pool->entry_capacity *= 2;
     strpool_internal_entry_t* new_entries = (strpool_internal_entry_t*) STRPOOL_MALLOC( pool->memctx, 
         pool->entry_capacity * sizeof( *pool->entries ) );
-    STRPOOL_ASSERT( new_entries );
+    STRPOOL_ASSERT( new_entries, "Allocation failed" );
     STRPOOL_MEMCPY( new_entries, pool->entries, pool->entry_count * sizeof( *pool->entries ) );
     STRPOOL_FREE( pool->memctx, pool->entries );
     pool->entries = new_entries;    
@@ -876,7 +876,7 @@ static void strpool_internal_expand_handles( strpool_t* pool )
     pool->handle_capacity *= 2;
     strpool_internal_handle_t* new_handles = (strpool_internal_handle_t*) STRPOOL_MALLOC( pool->memctx, 
         pool->handle_capacity * sizeof( *pool->handles ) );
-    STRPOOL_ASSERT( new_handles );
+    STRPOOL_ASSERT( new_handles, "Allocation failed" );
     STRPOOL_MEMCPY( new_handles, pool->handles, pool->handle_count * sizeof( *pool->handles ) );
     STRPOOL_FREE( pool->memctx, pool->handles );
     pool->handles = new_handles;
@@ -942,7 +942,7 @@ static char* strpool_internal_get_data_storage( strpool_t* pool, int size, int* 
 
 STRPOOL_U64 strpool_inject( strpool_t* pool, char const* string, int length )
     {
-    if( !string || length < 0 ) return 0;
+    if( !string || length <= 0 ) return 0;
 
     STRPOOL_U32 hash = strpool_internal_find_in_blocks( pool, string, length );
     // If no stored hash, calculate it from data
@@ -960,7 +960,7 @@ STRPOOL_U64 strpool_inject( strpool_t* pool, char const* string, int length )
         int slot_base = (int)( slot_hash & (STRPOOL_U32)( pool->hash_capacity - 1 ) );
         if( slot_base == base_slot ) 
             {
-            STRPOOL_ASSERT( base_count > 0 );
+            STRPOOL_ASSERT( base_count > 0, "Invalid base count" );
             --base_count;
             if( slot_hash == hash )
                 {
@@ -1008,8 +1008,8 @@ STRPOOL_U64 strpool_inject( strpool_t* pool, char const* string, int length )
     if( pool->entry_count >= pool->entry_capacity )
         strpool_internal_expand_entries( pool );
 
-    STRPOOL_ASSERT( !pool->hash_table[ slot ].hash_key && ( hash & ( (STRPOOL_U32) pool->hash_capacity - 1 ) ) == (STRPOOL_U32) base_slot );
-    STRPOOL_ASSERT( hash );
+    STRPOOL_ASSERT( !pool->hash_table[ slot ].hash_key && ( hash & ( (STRPOOL_U32) pool->hash_capacity - 1 ) ) == (STRPOOL_U32) base_slot, "Invalid slot" );
+    STRPOOL_ASSERT( hash, "Invalid hash" );
     pool->hash_table[ slot ].hash_key = hash;
     pool->hash_table[ slot ].entry_index = pool->entry_count;
     ++pool->hash_table[ base_slot ].base_count;
@@ -1120,7 +1120,7 @@ void strpool_discard( strpool_t* pool, STRPOOL_U64 handle )
         // recycle handle
         if( pool->handle_freelist_tail < 0 )
             {
-            STRPOOL_ASSERT( pool->handle_freelist_head < 0 );
+            STRPOOL_ASSERT( pool->handle_freelist_head < 0, "Freelist error" );
             pool->handle_freelist_head = entry->handle_index;
             pool->handle_freelist_tail = entry->handle_index;
             }
@@ -1135,7 +1135,7 @@ void strpool_discard( strpool_t* pool, STRPOOL_U64 handle )
         // recycle hash slot
         STRPOOL_U32 hash = pool->hash_table[ entry->hash_slot ].hash_key;
         int base_slot = (int)( hash & (STRPOOL_U32)( pool->hash_capacity - 1 ) );
-        STRPOOL_ASSERT( hash );
+        STRPOOL_ASSERT( hash, "Invalid hash" );
         --pool->hash_table[ base_slot ].base_count;
         pool->hash_table[ entry->hash_slot ].hash_key = 0;
 
@@ -1169,7 +1169,7 @@ int strpool_decref( strpool_t* pool, STRPOOL_U64 handle )
     strpool_internal_entry_t* entry = strpool_internal_get_entry( pool, handle );
     if( entry )
         {
-        STRPOOL_ASSERT( entry->refcount > 0 );
+        STRPOOL_ASSERT( entry->refcount > 0, "Invalid ref count" );
         --entry->refcount;
         return entry->refcount;
         }
@@ -1216,13 +1216,13 @@ char* strpool_collate( strpool_t const* pool, int* count )
     if( size == 0 ) return NULL;
 
     char* strings = (char*) STRPOOL_MALLOC( pool->memctx, (size_t) size );
-    STRPOOL_ASSERT( strings );
+    STRPOOL_ASSERT( strings, "Allocation failed" );
     *count = pool->entry_count;
     char* ptr = strings;
     for( int i = 0; i < pool->entry_count; ++i )
         {
         int len = pool->entries[ i ].length + 1;
-        char* src = pool->entries[ i ].data += 2 * sizeof( STRPOOL_U32 );
+        char* src = pool->entries[ i ].data + 2 * sizeof( STRPOOL_U32 );
         STRPOOL_MEMCPY( ptr, src, (size_t) len );
         ptr += len;
         }

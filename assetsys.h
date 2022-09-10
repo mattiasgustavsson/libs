@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-assetsys.h - v1.1 - File system abstraction to read from zip-files, for C/C++.
+assetsys.h - v1.2 - File system abstraction to read from zip-files, for C/C++.
 
 Do this:
     #define ASSETSYS_IMPLEMENTATION
@@ -384,7 +384,7 @@ path. If the path is invalid or index is out of range, `assetsys_subdir_path` re
 #endif /* ASSETSYS_NO_MINIZ */
 
 #ifdef ASSETSYS_ASSERT
-    #define MZ_ASSERT ASSETSYS_ASSERT
+    #define MZ_ASSERT( x ) ASSETSYS_ASSERT( x, "Miniz assert" )
 #endif /* ASSETSYS_ASSERT */
 
 #pragma warning( push )
@@ -5353,7 +5353,7 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
     #define _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_SECURE_NO_WARNINGS
     #include <assert.h>
-    #define ASSETSYS_ASSERT( x ) assert( x )
+    #define ASSETSYS_ASSERT( expression, message ) assert( ( expression ) && ( message ) )
 #endif
 
 #ifndef ASSETSYS_MALLOC
@@ -5369,15 +5369,17 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 
     #define _CRT_NONSTDC_NO_DEPRECATE 
     #define _CRT_SECURE_NO_WARNINGS
-#if _WIN32_WINNT < 0x0501
+	#if !defined( _WIN32_WINNT ) || _WIN32_WINNT < 0x0501 
     #undef _WIN32_WINNT
     #define _WIN32_WINNT 0x0501 // requires Windows XP minimum
+	#endif
     // 0x0400=Windows NT 4.0, 0x0500=Windows 2000, 0x0501=Windows XP, 0x0502=Windows Server 2003, 0x0600=Windows Vista, 
     // 0x0601=Windows 7, 0x0602=Windows 8, 0x0603=Windows 8.1, 0x0A00=Windows 10
 #endif
     #define _WINSOCKAPI_
     #pragma warning( push )
     #pragma warning( disable: 4668 ) // 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
+    #pragma warning( disable: 4768 ) // __declspec attributes before linkage specification are ignored	
     #pragma warning( disable: 4255 ) // 'function' : no function prototype given: converting '()' to '(void)'
     #include <windows.h>
     #pragma warning( pop )
@@ -5391,21 +5393,18 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 
     struct assetsys_internal_dir_t
         {
-        void* memctx;
         HANDLE handle;
         WIN32_FIND_DATAA data;
         struct assetsys_internal_dir_entry_t entry;
         };
 
 
-    static struct assetsys_internal_dir_t* assetsys_internal_dir_open( char const* path, void* memctx )
+    static void assetsys_internal_dir_open( struct assetsys_internal_dir_t* dir, char const* path )
         {
-        if( !path ) return 0;
-
         size_t path_len = strlen( path );
         BOOL trailing_path_separator = path[ path_len - 1 ] == '\\' || path[ path_len - 1 ] == '/';
         const char* string_to_append = "*.*";
-        if( path_len + strlen( string_to_append ) + ( trailing_path_separator ? 0 : 1 ) >= MAX_PATH ) return NULL;
+        if( path_len + strlen( string_to_append ) + ( trailing_path_separator ? 0 : 1 ) >= MAX_PATH ) return;
         char search_pattern[ MAX_PATH ];
         strcpy( search_pattern, path );
         if( !trailing_path_separator ) strcat( search_pattern, "\\" );
@@ -5413,30 +5412,21 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 
         WIN32_FIND_DATAA data;
         HANDLE handle = FindFirstFileA( search_pattern, &data );
-        if( handle == INVALID_HANDLE_VALUE ) return NULL;
+        if( handle == INVALID_HANDLE_VALUE ) return;
 
-        struct assetsys_internal_dir_t* dir = (struct assetsys_internal_dir_t*) ASSETSYS_MALLOC( memctx, 
-            sizeof( struct assetsys_internal_dir_t ) );
-        dir->memctx = memctx;
         dir->handle = handle;
         dir->data = data;
-
-        return dir;
         }
 
 
     static void assetsys_internal_dir_close( struct assetsys_internal_dir_t* dir )
         {
-        if( !dir ) return;
-
         if( dir->handle != INVALID_HANDLE_VALUE ) FindClose( dir->handle );
-        ASSETSYS_FREE( dir->memctx, dir );
         }
 
 
     static struct assetsys_internal_dir_entry_t* assetsys_internal_dir_read( struct assetsys_internal_dir_t* dir )
         {
-        if( !dir ) return NULL;
         if( dir->handle == INVALID_HANDLE_VALUE ) return NULL;
 
         strcpy( dir->entry.name, dir->data.cFileName );
@@ -5455,21 +5445,18 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 
     static char const* assetsys_internal_dir_name( struct assetsys_internal_dir_entry_t* entry )
         {
-        if( !entry ) return NULL;
         return entry->name;
         }
 
 
     static int assetsys_internal_dir_is_file( struct assetsys_internal_dir_entry_t* entry )
         {
-        if( !entry ) return 0;
         return entry->is_folder == FALSE;
         }
 
 
     static int assetsys_internal_dir_is_folder( struct assetsys_internal_dir_entry_t* entry )
         {
-        if( !entry ) return 0;
         return entry->is_folder == TRUE;
         }
 
@@ -5478,48 +5465,47 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 
     #include <dirent.h>
 
-    typedef struct assetsys_internal_dir_t assetsys_internal_dir_t;
+    struct assetsys_internal_dir_t
+        {
+        DIR* dir 
+        };
+
+
     typedef struct assetsys_internal_dir_entry_t assetsys_internal_dir_entry_t;
 
-    static assetsys_internal_dir_t* assetsys_internal_dir_open( char const* path, void* memctx )
+
+    static void assetsys_internal_dir_open( struct assetsys_internal_dir_t* dir, char const* path )
         {
-        (void) memctx;
-        DIR* dir = opendir( path );
-        return (assetsys_internal_dir_t*) dir;
+        dir->dir = opendir( path );
         }
 
 
     static void assetsys_internal_dir_close( assetsys_internal_dir_t* dir )
         {
-        if( !dir ) return;
-        closedir( (DIR*) dir );
+        closedir( dir->dir );
         }
 
 
     static assetsys_internal_dir_entry_t* assetsys_internal_dir_read( assetsys_internal_dir_t* dir )
         {
-        if( !dir ) return NULL;
-        return (assetsys_internal_dir_entry_t*)readdir( (DIR*) dir );
+        return (assetsys_internal_dir_entry_t*)readdir( dir->dir );
         }
 
 
     static char const* assetsys_internal_dir_name( assetsys_internal_dir_entry_t* entry )
         {
-        if( !entry ) return NULL;
         return ( (struct dirent*)entry )->d_name;
         }
 
 
     static int assetsys_internal_dir_is_file( assetsys_internal_dir_entry_t* entry )
         {
-        if( !entry ) return 0;
         return ( (struct dirent*)entry )->d_type == DT_REG;
         }
 
 
     static int assetsys_internal_dir_is_folder( assetsys_internal_dir_entry_t* entry )
         {
-        if( !entry ) return 0;
         return ( (struct dirent*)entry )->d_type == DT_DIR;
         }
 
@@ -5538,6 +5524,7 @@ static void* assetsys_internal_mz_alloc( void* memctx, size_t items, size_t size
 static void assetsys_internal_mz_free( void* memctx, void* ptr ) 
     { 
     (void) memctx; (void) ptr; 
+    if( !ptr ) return;
     ASSETSYS_U64* p = ( (ASSETSYS_U64*) ptr ) - 1;
     ASSETSYS_FREE( memctx, p ); 
     }
@@ -5683,7 +5670,7 @@ static int assetsys_internal_register_collated( assetsys_t* sys, char const* con
         {
         if( sys->collated[ i ].ref_count > 0 && sys->collated[ i ].path == handle )
             {
-            ASSETSYS_ASSERT( is_file == sys->collated[ i ].is_file );
+            ASSETSYS_ASSERT( is_file == sys->collated[ i ].is_file, "Entry type mismatch" );
             ++sys->collated[ i ].ref_count;
             strpool_discard( &sys->strpool, handle );
             return i;
@@ -5773,10 +5760,11 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
     strcat( sys->temp, ( *path == '\0' || *sys->temp == '\0' ) ? "" : "/" );
     strcat( sys->temp, path );
 
-    struct assetsys_internal_dir_t* dir = assetsys_internal_dir_open( *sys->temp == '\0' ? "." : sys->temp, sys->memctx );
+    struct assetsys_internal_dir_t dir;
+    assetsys_internal_dir_open( &dir, *sys->temp == '\0' ? "." : sys->temp );
         
     struct assetsys_internal_dir_entry_t* dirent;
-    for( dirent = assetsys_internal_dir_read( dir ); dirent != NULL; dirent = assetsys_internal_dir_read( dir ) )
+    for( dirent = assetsys_internal_dir_read( &dir ); dirent != NULL; dirent = assetsys_internal_dir_read( &dir ) )
         {
         char const* name = assetsys_internal_dir_name( dirent );
         if( !name || *name == '\0' || strcmp( name, "." ) == 0 || strcmp( name, ".." ) == 0 ) continue;
@@ -5855,7 +5843,7 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
                 }
             }        
         }
-    assetsys_internal_dir_close( dir );
+    assetsys_internal_dir_close( &dir );
     }
 
 
@@ -6031,7 +6019,7 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
 static void assetsys_internal_remove_collated( assetsys_t* sys, int const index )
     {
     struct assetsys_internal_collated_t* coll = &sys->collated[ index ];
-    ASSETSYS_ASSERT( coll->ref_count > 0 );
+    ASSETSYS_ASSERT( coll->ref_count > 0, "Invalid ref count" );
     --coll->ref_count;
     if( coll->ref_count == 0 )
         {
@@ -6322,6 +6310,7 @@ contributors:
     Randy Gaul (hotloading support)
 
 revision history:
+    1.2     asserts with message, eliminated a frequent small allocation
     1.1     changes to support loading assets being re-saved during execution
     1.0     first released version  
 

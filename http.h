@@ -16,6 +16,7 @@ before you include this file in *one* C/C++ file to create the implementation.
 #define _CRT_NONSTDC_NO_DEPRECATE 
 #define _CRT_SECURE_NO_WARNINGS
 #include <stddef.h> // for size_t
+#include <stdint.h> // for uintptr_t
 
 typedef enum http_status_t
     {
@@ -420,7 +421,8 @@ http_t* http_get( char const* url, void* memctx )
         internal->request_header_large = (char*) HTTP_MALLOC( memctx, request_header_len + 1 );
         request_header = internal->request_header_large;
         }       
-    sprintf( request_header, "GET %s HTTP/1.0\r\nHost: %s:%s\r\n\r\n", resource, address, port );
+    int default_http_port = (strcmp(port, "80") == 0);
+    sprintf( request_header, "GET %s HTTP/1.0\r\nHost: %s%s%s\r\n\r\n", resource, address, default_http_port ? "" : ":", default_http_port ? "" : port );
     
     return &internal->http;
     }
@@ -458,7 +460,8 @@ http_t* http_post( char const* url, void const* data, size_t size, void* memctx 
         internal->request_header_large = (char*) HTTP_MALLOC( memctx, request_header_len + 1 );
         request_header = internal->request_header_large;
         }       
-    sprintf( request_header, "POST %s HTTP/1.0\r\nHost: %s:%s\r\nContent-Length: %d\r\n\r\n", resource, address, port, 
+    int default_http_port = (strcmp(port, "80") == 0);
+    sprintf( request_header, "POST %s HTTP/1.0\r\nHost: %s%s%s\r\nContent-Length: %d\r\n\r\n", resource, address, default_http_port ? "" : ":", default_http_port ? "" : port, 
         (int) size );
     
     internal->request_data_size = size;

@@ -98,30 +98,30 @@ Examples:
 	if( !text || !pixels ) return; \
 	char const* str = text; \
 	SYSFONT_U32* const data = sysfont_data; \
-	int xp = x; \
+	int px = x; \
 	while( *str ) \
 		{ \
 		SYSFONT_U8 c = (SYSFONT_U8) *str++; \
 		int sx = ( c % M ) * W; \
 		int sy = ( c / M ) * H + O; \
-		int dx = xp; \
+		int dx = px; \
 		int dy = y; \
-		for( int y = 0; y < H; ++y ) \
+		for( int iy = 0; iy < H; ++iy ) \
 			{ \
-			for( int x = 0; x < W; ++x ) \
+			for( int ix = 0; ix < W; ++ix ) \
 				{ \
-				int v = ( sx + x ) / 32; \
-				int u = ( sx + x ) - ( v * 32 ); \
-				SYSFONT_U32 b = data[ v + ( sy + y ) * 8 ]; \
+				int v = ( sx + ix ) / 32; \
+				int u = ( sx + ix ) - ( v * 32 ); \
+				SYSFONT_U32 b = data[ v + ( sy + iy ) * 8 ]; \
 				if( b & ( 1 << u ) ) \
 					{ \
-					int xp = dx + x; \
-					int yp = dy + y; \
+					int xp = dx + ix; \
+					int yp = dy + iy; \
 					if( xp >= 0 && xp < width && yp >= 0 && yp < height ) pixels[ xp + yp * width ] = color; \
 					} \
 				} \
 			} \
-		xp += W; \
+		px += W; \
 		}
 
 
@@ -129,10 +129,10 @@ Examples:
 	SYSFONT_DATA \
 	SYSFONT_U32* src = sysfont_data; \
 	T* row = texture; \
-	for( int y = 0; y < 224; ++y ) \
+	for( int iy = 0; iy < 224; ++iy ) \
 		{ \
 		T* dst = row; \
-		for( int x = 0; x < 256 / 32; ++x ) \
+		for( int ix = 0; ix < 256 / 32; ++ix ) \
 			{ \
 			SYSFONT_U32 b = *src++; \
 			for( int i = 0; i < 32; ++i ) \
@@ -140,10 +140,10 @@ Examples:
 			} \
 		row = (T*) ( ( (SYSFONT_U8*) row ) + pitch_in_bytes ); \
 		} \
-	for( int y = 224; y < 256; ++y ) \
+	for( int iy = 224; iy < 256; ++iy ) \
 		{ \
 		T* dst = row; \
-		for( int x = 0; x < 256; ++x ) \
+		for( int ix = 0; ix < 256; ++ix ) \
 			*dst++ = bgcolor; \
 		row = (T*) ( ( (SYSFONT_U8*) row ) + pitch_in_bytes ); \
 		}
@@ -185,19 +185,19 @@ void sysfont_8x8_u32( SYSFONT_U32* pixels, int width, int height, int x, int y, 
 	}
 
 
-void sysfont_texture_u8( SYSFONT_U8*  const texture, int const pitch_in_bytes, SYSFONT_U8 const color, SYSFONT_U8 const bgcolor ) 
+void sysfont_texture_u8( SYSFONT_U8* texture, int pitch_in_bytes, SYSFONT_U8 color, SYSFONT_U8 bgcolor ) 
 	{ 
 	SYSFONT_TEX(SYSFONT_U8); 
 	}
 
 
-void sysfont_texture_u16( SYSFONT_U16* const texture, int const pitch_in_bytes, SYSFONT_U16 const color, SYSFONT_U16 const bgcolor ) 
+void sysfont_texture_u16( SYSFONT_U16* texture, int pitch_in_bytes, SYSFONT_U16 color, SYSFONT_U16 bgcolor ) 
 	{ 
 	SYSFONT_TEX(SYSFONT_U16); 
 	}
 
 
-void sysfont_texture_u32( SYSFONT_U32* const texture, int const pitch_in_bytes, SYSFONT_U32 const color, SYSFONT_U32 const bgcolor ) 
+void sysfont_texture_u32( SYSFONT_U32* texture, int pitch_in_bytes, SYSFONT_U32 color, SYSFONT_U32 bgcolor ) 
 	{ 
 	SYSFONT_TEX(SYSFONT_U32); 
 	}
