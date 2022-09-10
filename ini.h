@@ -557,10 +557,13 @@ ini_t* ini_load( char const* data, void* memctx )
                     start2 = ptr;
                     while( *ptr && *ptr != '\n' )
                         ++ptr;
-                    while( *(--ptr) <= ' ' ) 
+                    while( ptr >= start2 && *(--ptr) <= ' ' ) 
                         (void)ptr;
                     ptr++;
-                    ini_property_add( ini, s, start, l, start2, (int)( ptr - start2) );
+                    if( ptr == start2 )
+                        ini_property_add( ini, s, start, l, "", 1 );
+                    else
+                        ini_property_add( ini, s, start, l, start2, (int)( ptr - start2 ) );
                     }
                 }
             }
