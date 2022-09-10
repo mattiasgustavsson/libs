@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-assetsys.h - v1.2 - File system abstraction to read from zip-files, for C/C++.
+assetsys.h - v1.3 - File system abstraction to read from zip-files, for C/C++.
 
 Do this:
     #define ASSETSYS_IMPLEMENTATION
@@ -238,14 +238,14 @@ assetsys_mount
     assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* mount_as )
 
 Mounts the data source `path`, making all its files accessible through this assetsys instance. The data source can be
-either a folder or an archive file (a standard .zip file, with or without compression). `path` must be a relative path,
-and must use forward slash `/` as path separator, never backslash, regardless of platform. It must not end with a path 
-separator. The string `mount_as` will be prepended to all mounted files, and can be passed as an empty string "" if 
-desired. `mount_as` may not contain the characters backslash `\` or colon `:`. It must not end with a path separator.
-`assetsys_mount` will return `ASSETSYS_ERROR_INVALID_PARAMETER` if either `path` or `mount_as` is NULL. It will return
-`ASSETSYS_ERROR_INVALID_PATH` if the conditions detailed above are not met, or if the file or folder specified by `path`
-could not be found. If `path` indicates a file, and it is not a valid archive file, `assetsys_mount` returns
-`ASSETSYS_ERROR_FAILED_TO_READ_ZIP`.
+either a folder or an archive file (a standard .zip file, with or without compression). `path` must use forward slash 
+`/` as path separator, never backslash, regardless of platform. It must not end with a path separator. The string
+`mount_as` will be prepended to all mounted files, and can be passed as "/" to mount as root.  `mount_as` may 
+not contain the characters backslash `\` or colon `:`. It must not end with a path separator (unless consisting of 
+a single path separator only, "/"). `assetsys_mount` will  return `ASSETSYS_ERROR_INVALID_PARAMETER` if either `path` 
+or `mount_as` is NULL. It will return `ASSETSYS_ERROR_INVALID_PATH` if the conditions detailed above are not met, or 
+if the file or folder specified by `path` could not be found. If `path` indicates a file, and it is not a valid archive
+file, `assetsys_mount` returns `ASSETSYS_ERROR_FAILED_TO_READ_ZIP`.
 
 If multiple mounts contains the same file and it is accessible through the same full path (whether because of the 
 `mount_as` prefix or not), the last mounted data source will be used when loading that file.
@@ -5852,10 +5852,8 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
     if( !path ) return ASSETSYS_ERROR_INVALID_PARAMETER;
     if( !mount_as ) return ASSETSYS_ERROR_INVALID_PARAMETER;
     if( strchr( path, '\\' ) ) return ASSETSYS_ERROR_INVALID_PATH;
-    if( strchr( mount_as, ':' ) ) return ASSETSYS_ERROR_INVALID_PATH;
     if( strchr( mount_as, '\\' ) ) return ASSETSYS_ERROR_INVALID_PATH;
     int len = (int) strlen( path );
-    if( len > 0 && path[ 0 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;       
     if( len > 1 && path[ len - 1 ] == '/' ) return ASSETSYS_ERROR_INVALID_PATH;     
     int mount_len = (int) strlen( mount_as );
     if( mount_len == 0 || mount_as[ 0 ] != '/' || ( mount_len > 1 && mount_as[ mount_len - 1 ] == '/' ) ) 
@@ -6310,6 +6308,7 @@ contributors:
     Randy Gaul (hotloading support)
 
 revision history:
+    1.3     allow absolute paths when mounting, update docs for mount as root
     1.2     asserts with message, eliminated a frequent small allocation
     1.1     changes to support loading assets being re-saved during execution
     1.0     first released version  
