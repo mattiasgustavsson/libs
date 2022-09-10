@@ -25,7 +25,7 @@ before you include this file in *one* C/C++ file to create the implementation.
 #define array_create( type ) ARRAY_CAST( (void*)internal_array_create( sizeof( type ), NULL ) )
 #define array_create_memctx( type, memctx ) ARRAY_CAST( (void*)internal_array_create( sizeof( type ), (memctx) ) )
 #define array_destroy( array ) internal_array_destroy( (struct internal_array_t*) (array) )
-#define array_add( array, item ) ARRAY_CAST( internal_array_add( (struct internal_array_t*) (array), (void*) (item) ) )
+#define array_add( array, item ) ARRAY_CAST( internal_array_add( (struct internal_array_t*) (array), (void*) (item), (int)sizeof( *item ) ) )
 #define array_remove( array, index ) internal_array_remove( (struct internal_array_t*) (array), (index) )
 #define array_remove_ordered( array, index ) internal_array_remove_ordered( (struct internal_array_t*) (array), (index) )
 #define array_get( array, index, item ) internal_array_get( (struct internal_array_t*) (array), (index), (void*) (item) )
@@ -71,7 +71,7 @@ struct internal_array_t;
 
 struct internal_array_t* internal_array_create( int item_size, void* memctx );
 void internal_array_destroy( struct internal_array_t* array );
-void* internal_array_add( struct internal_array_t* array, void* item );
+void* internal_array_add( struct internal_array_t* array, void* item, int item_size );
 void internal_array_remove( struct internal_array_t* array, int index );
 void internal_array_remove_ordered( struct internal_array_t* array, int index );
 ARRAY_BOOL_T internal_array_get( struct internal_array_t* array, int index, void* item );
@@ -94,6 +94,12 @@ void* internal_array_item( struct internal_array_t* array, int index );
 #ifdef ARRAY_IMPLEMENTATION
 #undef ARRAY_IMPLEMENTATION
 
+#ifndef ARRAY_ASSERT
+    #define _CRT_NONSTDC_NO_DEPRECATE
+    #define _CRT_SECURE_NO_WARNINGS
+    #include <assert.h>
+    #define ARRAY_ASSERT( condition, message ) assert( condition && message );
+#endif
 
 #ifndef ARRAY_MALLOC
     #define _CRT_NONSTDC_NO_DEPRECATE
@@ -165,7 +171,8 @@ void internal_array_destroy( struct internal_array_t* array ) {
 }
 
 
-void* internal_array_add( struct internal_array_t* array, void* item ) {
+void* internal_array_add( struct internal_array_t* array, void* item, int item_size  ) {
+    ARRAY_ASSERT( item_size == array->item_size, "Invalid item" );
     if( array->count >= array->capacity ) {
         array->capacity *= 2;
         void* items = array->items;
