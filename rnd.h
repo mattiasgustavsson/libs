@@ -508,7 +508,7 @@ int rnd_xorshift_range( rnd_xorshift_t* xorshift, int min, int max )
     {
     int const range = ( max - min ) + 1;
     if( range <= 0 ) return min;
-    int const value = (int) ( rnd_xorshift_next( xorshift ) * range );
+    int const value = (int) ( rnd_xorshift_nextf( xorshift ) * range );
     return min + value; 
    }
 
