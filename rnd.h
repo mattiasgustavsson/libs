@@ -8,9 +8,6 @@ rnd.h - v1.0 - Pseudo-random number generators for C/C++.
 Do this:
     #define RND_IMPLEMENTATION
 before you include this file in *one* C/C++ file to create the implementation.
-
-Additional Contributors
-  Jonatan Hedborg: unsigned int to normalized float conversion
 */
 
 #ifndef rnd_h
@@ -520,6 +517,10 @@ int rnd_xorshift_range( rnd_xorshift_t* xorshift, int min, int max )
 #endif /* RND_IMPLEMENTATION */
 
 /*
+
+contributors:
+	Jonatan Hedborg (unsigned int to normalized float conversion)
+
 revision history:
     1.0     first publicly released version 
 */
