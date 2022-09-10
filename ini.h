@@ -76,13 +76,13 @@ Examples
         data[ size ] = '\0';
         fclose( fp );
 
-        ini_t* ini = ini_load( data );
+        ini_t* ini = ini_load( data, NULL );
         free( data );
-        int second_index = ini_find_property( ini, INI_GLOBAL_SECTION, "SecondSetting" );
+        int second_index = ini_find_property( ini, INI_GLOBAL_SECTION, "SecondSetting", 0 );
         char const* second = ini_property_value( ini, INI_GLOBAL_SECTION, second_index );
         printf( "%s=%s\n", "SecondSetting", second );
-        int section = ini_find_section( ini, "MySection" );
-        int third_index = ini_find_property( ini, section, "ThirdSetting" );
+        int section = ini_find_section( ini, "MySection", 0 );
+        int third_index = ini_find_property( ini, section, "ThirdSetting", 0 );
         char const* third = ini_property_value( ini, section, third_index );
         printf( "%s=%s\n", "ThirdSetting", third );
         ini_destroy( ini );
@@ -102,11 +102,11 @@ Examples
 
     int main()
         {       
-        ini_t* ini = ini_create();
-        ini_property_add( ini, INI_GLOBAL_SECTION, "FirstSetting", "Test" );
-        ini_property_add( ini, INI_GLOBAL_SECTION, "SecondSetting", "2" );
-        int section = ini_section_add( ini, "MySection" );
-        ini_property_add( ini, section, "ThirdSetting", "Three" );
+        ini_t* ini = ini_create( NULL );
+        ini_property_add( ini, INI_GLOBAL_SECTION, "FirstSetting", 0, "Test", 0 );
+        ini_property_add( ini, INI_GLOBAL_SECTION, "SecondSetting", 0, "2", 0 );
+        int section = ini_section_add( ini, "MySection", 0 );
+        ini_property_add( ini, section, "ThirdSetting", 0, "Three", 0 );
 
         int size = ini_save( ini, NULL, 0 ); // Find the size needed
         char* data = (char*) malloc( size );
@@ -114,7 +114,7 @@ Examples
         ini_destroy( ini );
 
         FILE* fp = fopen( "test.ini", "w" );
-        fwrite( data, 1, size, fp );
+        fwrite( data, 1, size - 1, fp );
         fclose( fp );
         free( data );
 
