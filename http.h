@@ -16,6 +16,7 @@ before you include this file in *one* C/C++ file to create the implementation.
 #define _CRT_NONSTDC_NO_DEPRECATE 
 #define _CRT_SECURE_NO_WARNINGS
 #include <stddef.h> // for size_t
+#include <stdint.h> // for uintptr_t
 
 typedef enum http_status_t
     {
