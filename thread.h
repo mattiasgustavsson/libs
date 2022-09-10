@@ -31,6 +31,7 @@ typedef void* thread_ptr_t;
 thread_ptr_t thread_create( int (*thread_proc)( void* ), void* user_data, int stack_size );
 void thread_destroy( thread_ptr_t thread );
 int thread_join( thread_ptr_t thread );
+int thread_detach( thread_ptr_t thread );
 
 typedef union thread_mutex_t thread_mutex_t;
 void thread_mutex_init( thread_mutex_t* mutex );
@@ -228,6 +229,15 @@ thread_join
 Waits for the specified thread to exit. Returns the value which the thread returned when exiting.
 
 
+thread_detach
+-------------
+
+    int thread_detach( thread_ptr_t thread )
+
+Marks the thread as detached. When a detached thread terminates, its resources are automatically released back to the
+system without the need for another thread to join with the terminated thread.
+    
+    
 thread_mutex_init
 -----------------
     
@@ -730,6 +740,22 @@ int thread_join( thread_ptr_t thread )
     }
 
 
+int thread_detach( thread_ptr_t thread )
+    {
+    #if defined( _WIN32 )
+
+        return CloseHandle( (HANDLE) thread ) != 0;
+
+    #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
+
+        return pthread_detach( (pthread_t) thread ) == 0;
+
+    #else 
+        #error Unknown platform.
+    #endif
+    }
+
+    
 void thread_set_high_priority( void )
     {
     #if defined( _WIN32 )
