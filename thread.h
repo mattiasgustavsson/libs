@@ -621,6 +621,7 @@ struct thread_queue_t
 
     #include <pthread.h>
     #include <errno.h>
+    #include <string.h>
     #include <sys/time.h>
 
 #else 
