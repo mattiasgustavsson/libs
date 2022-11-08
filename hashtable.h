@@ -709,12 +709,11 @@ void hashtable_remove( hashtable_t* table, HASHTABLE_U32 hash, void const* key )
 
         HASHTABLE_U32 slot_capacity = (HASHTABLE_U32) table->slot_capacity;
         int const base_slot = (int)( hash % slot_capacity );
-        HASHTABLE_ASSERT( hash );
+        int index = table->slots[ slot ].item_index;
+        int last_index = table->count - 1;
         --table->slots[ base_slot ].base_count;
         table->slots[ slot ].item_index = -1;
 
-        int index = table->slots[ slot ].item_index;
-        int last_index = table->count - 1;
         if( index != last_index )
             {
             void* dst_key = (void*)( ( (uintptr_t) table->items_key ) + index * table->key_size );
