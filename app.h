@@ -2015,13 +2015,16 @@ static BOOL CALLBACK app_internal_monitorenumproc( HMONITOR hmonitor, HDC dc, LP
     display->height = rect->bottom - rect->top;
 
     #ifdef __cplusplus
-        MONITORINFOEXA mi = {};
+        MONITORINFOEXA mi;
+        memset( &mi, 0, sizeof( MONITORINFOEXA ) );
         mi.cbSize = sizeof( MONITORINFOEXA );
         BOOL res = GetMonitorInfoA( hmonitor, &mi );
         if( res && strlen( mi.szDevice ) >= sizeof( display->id ) ) res = FALSE;
         strcpy( display->id, res ? mi.szDevice : "" ) ;
     #else
-        MONITORINFOEXA mi = { sizeof( MONITORINFOEXA ) };
+        MONITORINFOEXA mi;
+        memset( &mi, 0, sizeof( MONITORINFOEXA ) );
+        mi.cbSize = sizeof( MONITORINFOEXA );
         BOOL res = GetMonitorInfoA( hmonitor, (LPMONITORINFO)&mi );
         if( res && strlen( mi.szDevice ) >= sizeof( display->id ) ) res = FALSE;
         strcpy( display->id, res ? mi.szDevice : "" ) ;
