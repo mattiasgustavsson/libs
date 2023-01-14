@@ -1041,8 +1041,8 @@ void thread_atomic_int_store( thread_atomic_int_t* atomic, int desired )
 
         __sync_fetch_and_and( &atomic->i, 0 );
         __sync_fetch_and_or( &atomic->i, desired );
-
-#else 
+    
+    #else 
         #error Unknown platform.
     #endif
     }
