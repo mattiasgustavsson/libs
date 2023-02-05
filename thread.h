@@ -1039,8 +1039,8 @@ void thread_atomic_int_store( thread_atomic_int_t* atomic, int desired )
 
     #elif defined( __linux__ ) || defined( __APPLE__ ) || defined( __ANDROID__ )
 
-        __sync_lock_test_and_set( &atomic->i, desired );
-        __sync_lock_release( &atomic->i );
+        __sync_fetch_and_and( &atomic->i, 0 );
+        __sync_fetch_and_or( &atomic->i, desired );
     
     #else 
         #error Unknown platform.
