@@ -446,8 +446,7 @@ struct hashtable_t
     #define _CRT_NONSTDC_NO_DEPRECATE 
     #undef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
-    #include <string.h>
-    #define HASHTABLE_KEYCOPY( dst, src, cnt ) ( memcpy( dst, src, cnt ) )
+    #define HASHTABLE_KEYCOPY( dst, src, cnt ) ( HASHTABLE_MEMCPY( dst, src, cnt ) )
 #endif 
 
 #ifndef HASHTABLE_ITEMCOPY
@@ -455,8 +454,16 @@ struct hashtable_t
     #define _CRT_NONSTDC_NO_DEPRECATE 
     #undef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
+    #define HASHTABLE_ITEMCOPY( dst, src, cnt ) ( HASHTABLE_MEMCPY( dst, src, cnt ) )
+#endif 
+
+#ifndef HASHTABLE_MEMCMP
+    #undef _CRT_NONSTDC_NO_DEPRECATE 
+    #define _CRT_NONSTDC_NO_DEPRECATE 
+    #undef _CRT_SECURE_NO_WARNINGS
+    #define _CRT_SECURE_NO_WARNINGS
     #include <string.h>
-    #define HASHTABLE_ITEMCOPY( dst, src, cnt ) ( memcpy( dst, src, cnt ) )
+    #define HASHTABLE_MEMCMP( str1, str2, n ) ( memcmp( str1, str2, n ) )
 #endif 
 
 #ifndef HASHTABLE_KEYCMP
@@ -464,8 +471,7 @@ struct hashtable_t
     #define _CRT_NONSTDC_NO_DEPRECATE 
     #undef _CRT_SECURE_NO_WARNINGS
     #define _CRT_SECURE_NO_WARNINGS
-    #include <string.h>
-    #define HASHTABLE_KEYCMP( a, b, len ) ( memcmp( a, b, len ) == 0 )
+    #define HASHTABLE_KEYCMP( a, b, len ) ( HASHTABLE_MEMCMP( a, b, len ) == 0 )
 #endif 
 
 #ifndef HASHTABLE_MALLOC
