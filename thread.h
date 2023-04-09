@@ -623,6 +623,7 @@ struct thread_queue_t
     #include <errno.h>
     #include <string.h>
     #include <sys/time.h>
+    #include <stdint.h>
 
 #else 
     #error Unknown platform.
