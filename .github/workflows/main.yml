@@ -1,6 +1,6 @@
 name: build
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build-windows-msvc:
@@ -60,7 +60,7 @@ jobs:
       - name: run cstr tests
         run: ./a.out
   build-linux-gcc:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
       - name: build cstr.h
@@ -69,7 +69,7 @@ jobs:
       - name: run cstr tests
         run: ./a.out
   build-linux-gcc-cpp:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
       - name: build cstr.h
