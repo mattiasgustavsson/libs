@@ -5468,7 +5468,7 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 
     struct assetsys_internal_dir_t
         {
-        DIR* dir 
+        DIR* dir;
         };
 
 
@@ -5481,13 +5481,13 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
         }
 
 
-    static void assetsys_internal_dir_close( assetsys_internal_dir_t* dir )
+    static void assetsys_internal_dir_close( struct assetsys_internal_dir_t* dir )
         {
         closedir( dir->dir );
         }
 
 
-    static assetsys_internal_dir_entry_t* assetsys_internal_dir_read( assetsys_internal_dir_t* dir )
+    static assetsys_internal_dir_entry_t* assetsys_internal_dir_read( struct assetsys_internal_dir_t* dir )
         {
         return (assetsys_internal_dir_entry_t*)readdir( dir->dir );
         }
