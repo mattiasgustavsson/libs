@@ -370,6 +370,14 @@ path. If the path is invalid or index is out of range, `assetsys_subdir_path` re
 */
 
 
+// If we are running tests on windows
+#if defined( ASSETSYS_RUN_TESTS ) && defined( _WIN32 ) && !defined( __TINYC__ )
+    // To get file names/line numbers with meory leak detection, we need to include crtdbg.h before all other files
+    #define _CRTDBG_MAP_ALLOC
+    #include <crtdbg.h>
+#endif
+
+
 /*
 ----------------------
     IMPLEMENTATION
@@ -6304,6 +6312,82 @@ static char* assetsys_internal_dirname( char const* path )
 
 
 #endif /* ASSETSYS_IMPLEMENTATION */
+
+
+/*
+----------------------
+    TESTS
+----------------------
+*/
+
+
+#ifdef ASSETSYS_RUN_TESTS
+
+#include "testfw.h"
+
+
+void test_assetsys( void ) {
+    TESTFW_TEST_BEGIN( "Test mounting path and loading file" );
+
+    // Create the asset system
+    assetsys_t* assetsys = assetsys_create( 0 );
+    TESTFW_EXPECTED( assetsys != NULL );
+
+    // Mount current working folder as a virtual "/data" path
+    TESTFW_EXPECTED( assetsys_mount( assetsys, ".", "/data" ) == ASSETSYS_SUCCESS );
+
+    // Load a file
+    assetsys_file_t file;
+    TESTFW_EXPECTED(  assetsys_file( assetsys, "/data/README.md", &file ) == ASSETSYS_SUCCESS );
+
+    // Find the size of the file
+    int size = assetsys_file_size( assetsys, file );
+    TESTFW_EXPECTED( size > 30 );
+
+    // Load the file
+    char* content = (char*) malloc( size + 1 ); // extra space for '\0'
+    int loaded_size = 0;
+    TESTFW_EXPECTED( assetsys_file_load( assetsys, file, &loaded_size, content, size ) == ASSETSYS_SUCCESS );
+    content[ size ] = '\0'; // zero terminate the text file
+
+    // Clean up
+    free( content );
+    assetsys_destroy( assetsys );
+
+    TESTFW_TEST_END();
+}
+
+
+int main( int argc, char** argv ) {
+    (void) argc, argv;
+
+    TESTFW_INIT();
+    
+    test_assetsys();
+
+    return TESTFW_SUMMARY();
+}
+
+
+// pass-through so the program will build with either /SUBSYSTEM:WINDOWS or /SUBSYSTEM:CONSOLE
+#if defined( _WIN32 ) && !defined( __TINYC__ )
+    #include <stdlib.h>
+    #ifdef __cplusplus 
+        extern "C" int __stdcall WinMain( struct HINSTANCE__*, struct HINSTANCE__*, char*, int ) { 
+            return main( __argc, __argv ); 
+        }
+    #else
+        struct HINSTANCE__;
+        int __stdcall WinMain( struct HINSTANCE__* a, struct HINSTANCE__* b, char* c, int d ) { 
+            (void) a, b, c, d; return main( __argc, __argv ); 
+        }
+    #endif
+#endif
+
+#define TESTFW_IMPLEMENTATION
+#include "testfw.h"
+
+#endif /* ASSETSYS_RUN_TESTS */
 
 
 /*

@@ -14,6 +14,11 @@ jobs:
           cl /Tc cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS /MTd
       - name: run cstr tests
         run: .\cstr.exe
+      - name: build assetsys.h
+        run: |
+          cl /Tc assetsys.h /DASSETSYS_IMPLEMENTATION /DASSETSYS_RUN_TESTS /DSTRPOOL_IMPLEMENTATION /MTd
+      - name: run assetsys tests
+        run: .\assetsys.exe
   build-windows-msvc-cpp:
     runs-on: windows-2019
     steps:
@@ -25,6 +30,11 @@ jobs:
           cl /Tp cstr.h /DCSTR_IMPLEMENTATION /DCSTR_RUN_TESTS /MTd
       - name: run cstr tests
         run: .\cstr.exe
+      - name: build assetsys.h
+        run: |
+          cl /Tp assetsys.h /DASSETSYS_IMPLEMENTATION /DASSETSYS_RUN_TESTS /DSTRPOOL_IMPLEMENTATION /MTd
+      - name: run assetsys tests
+        run: .\assetsys.exe
   build-windows-tcc:
     runs-on: windows-2019
     steps:
@@ -41,6 +51,11 @@ jobs:
           tcc\tcc -xc cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
       - name: run cstr tests
         run: .\cstr.exe
+      - name: build assetsys.h
+        run: |
+          tcc\tcc -xc assetsys.h -DASSETSYS_IMPLEMENTATION -DASSETSYS_RUN_TESTS -DSTRPOOL_IMPLEMENTATION
+      - name: run assetsys tests
+        run: .\assetsys.exe
   build-macos:
     runs-on: macOS-latest
     steps:
@@ -49,6 +64,11 @@ jobs:
         run: |
           clang -xc cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
       - name: run cstr tests
+        run: ./a.out
+      - name: build assetsys.h
+        run: |
+          clang -xc assetsys.h -DASSETSYS_IMPLEMENTATION -DASSETSYS_RUN_TESTS -DSTRPOOL_IMPLEMENTATION
+      - name: run assetsys tests
         run: ./a.out
   build-macos-cpp:
     runs-on: macOS-latest
@@ -59,6 +79,11 @@ jobs:
           clang -xc++ cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
       - name: run cstr tests
         run: ./a.out
+      - name: build assetsys.h
+        run: |
+          clang -xc++ assetsys.h -DASSETSYS_IMPLEMENTATION -DASSETSYS_RUN_TESTS -DSTRPOOL_IMPLEMENTATION
+      - name: run assetsys tests
+        run: ./a.out
   build-linux-gcc:
     runs-on: ubuntu-latest
     steps:
@@ -68,6 +93,11 @@ jobs:
           gcc -xc cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
       - name: run cstr tests
         run: ./a.out
+      - name: build assetsys.h
+        run: |
+          gcc -xc assetsys.h -DASSETSYS_IMPLEMENTATION -DASSETSYS_RUN_TESTS -DSTRPOOL_IMPLEMENTATION
+      - name: run assetsys tests
+        run: ./a.out
   build-linux-gcc-cpp:
     runs-on: ubuntu-latest
     steps:
@@ -76,4 +106,9 @@ jobs:
         run: |
           gcc -xc++ cstr.h -DCSTR_IMPLEMENTATION -DCSTR_RUN_TESTS
       - name: run cstr tests
+        run: ./a.out
+      - name: build assetsys.h
+        run: |
+          gcc -xc++ assetsys.h -DASSETSYS_IMPLEMENTATION -DASSETSYS_RUN_TESTS -DSTRPOOL_IMPLEMENTATION
+      - name: run assetsys tests
         run: ./a.out
