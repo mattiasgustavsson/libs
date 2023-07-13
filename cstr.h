@@ -100,6 +100,8 @@ struct cstr_tokenizer_t { void* internal; };
 struct cstr_tokenizer_t cstr_tokenizer( char const* str );
 char const* cstr_tokenize( struct cstr_tokenizer_t* tokenizer, char const* separators );
 
+char* cstr_temp_buffer( size_t capacity );
+
 #endif /* CSTR_NO_GLOBAL_API */
 
 
@@ -165,6 +167,8 @@ CSTR_U32 cstri_hash( struct cstri_t* cstri, char const* str );
 struct cstr_tokenizer_t cstri_tokenizer( struct cstri_t* cstri, char const* str );
 char const* cstri_tokenize( struct cstri_t* cstri, struct cstr_tokenizer_t* tokenizer, char const* separators );
 
+char* cstri_temp_buffer( struct cstri_t* cstri, size_t capacity );
+
 #endif /* CSTR_INSTANCE_API */
 
 
@@ -205,6 +209,14 @@ cstr.h
 #ifndef CSTR_MUTEX_LOCK
     #define CSTR_MUTEX_LOCK() 
     #define CSTR_MUTEX_UNLOCK() 
+#endif
+
+#ifndef CSTR_VA_START
+    #define _CRT_NONSTDC_NO_DEPRECATE
+    #define _CRT_SECURE_NO_WARNINGS
+    #include <stdarg.h>
+    #define CSTR_VA_START va_start
+    #define CSTR_VA_END va_end
 #endif
 
 #ifndef CSTR_ASSERT
@@ -276,7 +288,7 @@ cstr.h
         #include <string.h>
         #define CSTR_STRNICMP( s1, s2, len ) ( strnicmp( (s1), (s2), (len) ) )
     #else
-        #include <string.h>
+        #include <strings.h>
         #define CSTR_STRNICMP( s1, s2, len ) ( strncasecmp( (s1), (s2), (len) ) )        
     #endif
 #endif 
@@ -642,9 +654,9 @@ char const* cstri_format( struct cstri_t* cstri, char const* format, ... ) {
         return internal_cstr_insert( cstri, "", 0 );
     }
 	CSTR_VA_LIST_T args;
-	va_start( args, format );
+    CSTR_VA_START( args, format );
     char const* ret = cstri_vformat( cstri, format, args );
-    va_end( args );
+    CSTR_VA_END( args );
     return ret;
 }
 
@@ -655,10 +667,10 @@ char const* cstri_trim( struct cstri_t* cstri, char const* str ) {
     }
     char const* start = str;
     char const* end = str + cstri_len( cstri, str );
-    while( start < end && isspace( *start ) ) {
+    while( start < end && CSTR_ISSPACE( *start ) ) {
         ++start;
     }
-    while( end > start && isspace( *( end - 1 ) ) ) {
+    while( end > start && CSTR_ISSPACE( *( end - 1 ) ) ) {
         --end;
     }
     return internal_cstr_insert( cstri, start, (CSTR_SIZE_T)( end - start ) ); 
@@ -671,7 +683,7 @@ char const* cstri_ltrim( struct cstri_t* cstri, char const* str ) {
     }
     char const* start = str;
     char const* end = str + cstri_len( cstri, str );
-    while( start < end && isspace( *start ) ) {
+    while( start < end && CSTR_ISSPACE( *start ) ) {
         ++start;
     }
     return internal_cstr_insert( cstri, start, (CSTR_SIZE_T)( end - start ) ); 
@@ -684,7 +696,7 @@ char const* cstri_rtrim( struct cstri_t* cstri, char const* str ) {
     }
     char const* start = str;
     char const* end = str + cstri_len( cstri, str );
-    while( end > start && isspace( *( end - 1 ) ) ) {
+    while( end > start && CSTR_ISSPACE( *( end - 1 ) ) ) {
         --end;
     }
     return internal_cstr_insert( cstri, start, (CSTR_SIZE_T)( end - start ) ); 
@@ -723,7 +735,7 @@ char const* cstri_mid( struct cstri_t* cstri, char const* str, size_t start, siz
     if( len <= start ) {
         return internal_cstr_insert( cstri, "", 0 );
     }
-    if( len - start <= n ) {
+    if( len - start <= n || n <= 0 ) {
         return internal_cstr_insert( cstri, str + start, len - start );
     }
     return internal_cstr_insert( cstri, str + start, n ); 
@@ -864,7 +876,7 @@ int cstri_find( struct cstri_t* cstri, char const* str, char const* find, int st
 
 
 int cstri_rfind( struct cstri_t* cstri, char const* str, char const* find, int start ) { 
-    (void) cstri, str, find, start;
+    (void) cstri, (void)str, (void)find, (void)start;
     // todo
     return -1;
 }
@@ -932,6 +944,10 @@ char const* cstri_tokenize( struct cstri_t* cstri, struct cstr_tokenizer_t* toke
 }
 
 
+char* cstri_temp_buffer( struct cstri_t* cstri, size_t capacity ) {
+    return internal_cstr_temp_buffer( cstri, capacity );
+}
+
 
 //// global api
 
@@ -954,7 +970,9 @@ static void internal_cstr_instance( void ) {
         g_internal_cstr = cstri_create( NULL );
         static int atexit_set = 0;
         if( !atexit_set ) {
+            #ifndef __wasm__
             atexit( internal_cstr_cleanup );
+            #endif
             atexit_set = 1;
         }
     }
@@ -1043,9 +1061,9 @@ char const* cstr_format( char const* format, ... ) {
     CSTR_MUTEX_LOCK();
     if( !g_internal_cstr ) internal_cstr_instance();
 	CSTR_VA_LIST_T args;
-	va_start( args, format );
+    CSTR_VA_START( args, format );
     char const* ret = cstri_vformat( g_internal_cstr, format, args ); 
-    va_end( args );
+    CSTR_VA_END( args );
     CSTR_MUTEX_UNLOCK();
     return ret;
 }
@@ -1289,6 +1307,15 @@ char const* cstr_tokenize( struct cstr_tokenizer_t* tokenizer, char const* separ
     CSTR_MUTEX_LOCK();
     if( !g_internal_cstr ) internal_cstr_instance();
     char const* ret = cstri_tokenize( g_internal_cstr, tokenizer, separators ); 
+    CSTR_MUTEX_UNLOCK();
+    return ret;
+}
+
+
+char* cstr_temp_buffer( size_t capacity ) {
+    CSTR_MUTEX_LOCK();
+    if( !g_internal_cstr ) internal_cstr_instance();
+    char* ret = cstri_temp_buffer( g_internal_cstr, capacity );
     CSTR_MUTEX_UNLOCK();
     return ret;
 }
