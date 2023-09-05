@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-assetsys.h - v1.3 - File system abstraction to read from zip-files, for C/C++.
+assetsys.h - v1.4 - File system abstraction to read from zip-files, for C/C++.
 
 Do this:
     #define ASSETSYS_IMPLEMENTATION
@@ -6515,8 +6515,10 @@ int main( int argc, char** argv ) {
 
 contributors:
     Randy Gaul (hotloading support)
+    Rob Loach (assetsys_mount_from_memory)
 
 revision history:
+    1.4     allow mounting from memory
     1.3     allow absolute paths when mounting, update docs for mount as root
     1.2     asserts with message, eliminated a frequent small allocation
     1.1     changes to support loading assets being re-saved during execution
