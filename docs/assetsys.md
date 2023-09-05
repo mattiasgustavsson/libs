@@ -190,6 +190,13 @@ If multiple mounts contains the same file and it is accessible through the same 
 `mount_as` prefix or not), the last mounted data source will be used when loading that file.
 
 
+assetsys_mount_from_memory
+-------------------
+
+    assetsys_error_t assetsys_mount_from_memory( assetsys_t* sys, void const* data, size_t size, char const* mount_as )
+
+Same as `assetsys_mount()`, but takes a data buffer of an archived *.zip* file, along with the size of the file.
+
 assetsys_dismount
 -----------------
 
