@@ -254,13 +254,12 @@ If multiple mounts contains the same file and it is accessible through the same 
 `mount_as` prefix or not), the last mounted data source will be used when loading that file.
 
 
-assetsys_mount_data
+assetsys_mount_from_memory
 -------------------
 
-    assetsys_error_t assetsys_mount( assetsys_t* sys, void const* data, size_t size, char const* mount_as )
+    assetsys_error_t assetsys_mount_from_memory( assetsys_t* sys, void const* data, size_t size, char const* mount_as )
 
-Same as assetsys_mount(), but this function mounts a given data buffer represented by an archive file (a standard .zip
-file, with or without compression).
+Same as `assetsys_mount()`, but takes a data buffer of an archived *.zip* file, along with the size of the file.
 
 
 assetsys_dismount
@@ -5366,6 +5365,7 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 #define _CRT_NONSTDC_NO_DEPRECATE 
 #define _CRT_SECURE_NO_WARNINGS
 #include <sys/stat.h>
+#include <stdio.h> // FILE, fopen, fseet, SEEK_END, SEEK_SET, ftell, fread
 
 #include "strpool.h"
 
@@ -5986,11 +5986,20 @@ struct assetsys_internal_mount_t* assetsys_internal_create_mount( assetsys_t* sy
     mount->dirs_capacity = 1024;
     mount->dirs = (struct assetsys_internal_folder_t*) ASSETSYS_MALLOC( sys->memctx, 
         sizeof( *(mount->dirs) ) * mount->dirs_capacity );
+
+    if( type == ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP )
+        {
+        memset( &mount->zip, 0, sizeof( mount->zip ) );
+        mount->zip.m_pAlloc = assetsys_internal_mz_alloc;
+        mount->zip.m_pRealloc = assetsys_internal_mz_realloc;
+        mount->zip.m_pFree = assetsys_internal_mz_free;
+        mount->zip.m_pAlloc_opaque = sys->memctx;
+        }
     
     return mount;
     }
 
-assetsys_error_t assetsys_mount_data( assetsys_t* sys, void const* data, size_t size, char const* mount_as)
+assetsys_error_t assetsys_mount_from_memory( assetsys_t* sys, void const* data, size_t size, char const* mount_as)
     {
     if (!data) return ASSETSYS_ERROR_INVALID_PARAMETER;
     if( !mount_as ) return ASSETSYS_ERROR_INVALID_PARAMETER;
@@ -6001,11 +6010,6 @@ assetsys_error_t assetsys_mount_data( assetsys_t* sys, void const* data, size_t 
 
     struct assetsys_internal_mount_t* mount = assetsys_internal_create_mount(sys, ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP, "data", mount_as);
 
-    memset( &mount->zip, 0, sizeof( mount->zip ) );
-    mount->zip.m_pAlloc = assetsys_internal_mz_alloc;
-    mount->zip.m_pRealloc = assetsys_internal_mz_realloc;
-    mount->zip.m_pFree = assetsys_internal_mz_free;
-    mount->zip.m_pAlloc_opaque = sys->memctx;
     mz_bool status = mz_zip_reader_init_mem( &mount->zip, data, size, 0 );
     if( !status )
         {
@@ -6066,11 +6070,10 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
         }
     else if( type == ASSETSYS_INTERNAL_MOUNT_TYPE_ZIP )
         {
-        memset( &mount->zip, 0, sizeof( mount->zip ) );
-        mount->zip.m_pAlloc = assetsys_internal_mz_alloc;
-        mount->zip.m_pRealloc = assetsys_internal_mz_realloc;
-        mount->zip.m_pFree = assetsys_internal_mz_free;
-        mount->zip.m_pAlloc_opaque = sys->memctx;
+#ifdef MINIZ_NO_STDIO
+        // If we explicitly disable stdio.
+        return ASSETSYS_ERROR_FAILED_TO_READ_ZIP;
+#else
         mz_bool status = mz_zip_reader_init_file( &mount->zip, path, 0 );
         if( !status )
             {
@@ -6082,6 +6085,7 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
         assetsys_error_t result = assetsys_internal_mount_zip( sys, mount );
         if( result != ASSETSYS_SUCCESS )
             return result;
+#endif
         }
 
     assetsys_internal_collate_directories( sys, mount );
@@ -6420,6 +6424,57 @@ void test_assetsys( void ) {
     free( content );
     assetsys_destroy( assetsys );
 
+    TESTFW_TEST_END();
+
+    TESTFW_TEST_BEGIN( "Test mounting data and loading file" );
+        {
+        // Zip file with a test.txt file containing "Hello, World!"
+        const char data[]  = {
+            0x50, 0x4b, 0x03, 0x04, 0x0a, 0x03, 0x00, 0x00, 0x00, 0x00, 0xfc, 0x9e, 0x23, 0x57, 0x84, 0x9e, 
+            0xe8, 0xb4, 0x0e, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x74, 0x65, 
+            0x73, 0x74, 0x2e, 0x74, 0x78, 0x74, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0x57, 0x6f, 0x72, 
+            0x6c, 0x64, 0x21, 0x0a, 0x50, 0x4b, 0x01, 0x02, 0x3f, 0x03, 0x0a, 0x03, 0x00, 0x00, 0x00, 0x00, 
+            0xfc, 0x9e, 0x23, 0x57, 0x84, 0x9e, 0xe8, 0xb4, 0x0e, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 
+            0x08, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x80, 0xb4, 0x81, 0x00, 0x00, 
+            0x00, 0x00, 0x74, 0x65, 0x73, 0x74, 0x2e, 0x74, 0x78, 0x74, 0x0a, 0x00, 0x20, 0x00, 0x00, 0x00, 
+            0x00, 0x00, 0x01, 0x00, 0x18, 0x00, 0x00, 0x0e, 0xf2, 0x2d, 0xc2, 0xde, 0xd9, 0x01, 0x00, 0x0e, 
+            0xf2, 0x2d, 0xc2, 0xde, 0xd9, 0x01, 0x00, 0x0e, 0xf2, 0x2d, 0xc2, 0xde, 0xd9, 0x01, 0x50, 0x4b, 
+            0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x5a, 0x00, 0x00, 0x00, 0x34, 0x00, 
+            0x00, 0x00, 0x00, 0x00
+        };
+        const size_t data_size = 164;
+
+        // Create the asset system
+        assetsys_t* assetsys = assetsys_create( 0 );
+        TESTFW_EXPECTED( assetsys != NULL );
+
+        // Mount current working folder as a virtual "/data" path
+        TESTFW_EXPECTED( assetsys_mount_from_memory( assetsys, data, data_size, "/data" ) == ASSETSYS_SUCCESS );
+
+        // Load a file
+        assetsys_file_t file;
+        TESTFW_EXPECTED(  assetsys_file( assetsys, "/data/test.txt", &file ) == ASSETSYS_SUCCESS );
+
+        // Find the size of the file
+        int size = assetsys_file_size( assetsys, file );
+        TESTFW_EXPECTED( size > 10 );
+
+        // Load the file
+        char* content = (char*) malloc( size + 1 ); // extra space for '\0'
+        int loaded_size = 0;
+        TESTFW_EXPECTED( assetsys_file_load( assetsys, file, &loaded_size, content, size ) == ASSETSYS_SUCCESS );
+        content[ size ] = '\0'; // zero terminate the text file
+
+        TESTFW_EXPECTED( content[0] == 'H' );
+        TESTFW_EXPECTED( content[1] == 'e' );
+        TESTFW_EXPECTED( content[2] == 'l' );
+        TESTFW_EXPECTED( content[3] == 'l' );
+        TESTFW_EXPECTED( content[4] == 'o' );
+
+        // Clean up
+        free( content );
+        assetsys_destroy( assetsys );
+        }
     TESTFW_TEST_END();
 }
 
