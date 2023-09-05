@@ -5871,7 +5871,7 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
  * 
  * @internal
  */
-assetsys_error_t assetsys_internal_mount_zip( assetsys_t* sys, struct assetsys_internal_mount_t* mount )
+assetsys_error_t assetsys_internal_mount_files( assetsys_t* sys, struct assetsys_internal_mount_t* mount )
     {
     int count = (int) mz_zip_reader_get_num_files( &mount->zip );
 
@@ -6018,7 +6018,7 @@ assetsys_error_t assetsys_mount_from_memory( assetsys_t* sys, void const* data, 
         return ASSETSYS_ERROR_FAILED_TO_READ_ZIP;
         }
 
-    assetsys_error_t result = assetsys_internal_mount_zip( sys, mount );
+    assetsys_error_t result = assetsys_internal_mount_files( sys, mount );
     if( result != ASSETSYS_SUCCESS )
         return result;
 
@@ -6082,7 +6082,7 @@ assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* 
             return ASSETSYS_ERROR_FAILED_TO_READ_ZIP;
             }
 
-        assetsys_error_t result = assetsys_internal_mount_zip( sys, mount );
+        assetsys_error_t result = assetsys_internal_mount_files( sys, mount );
         if( result != ASSETSYS_SUCCESS )
             return result;
 #endif
