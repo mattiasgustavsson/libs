@@ -44,6 +44,7 @@ assetsys_t* assetsys_create( void* memctx );
 void assetsys_destroy( assetsys_t* sys );
 
 assetsys_error_t assetsys_mount( assetsys_t* sys, char const* path, char const* mount_as );
+assetsys_error_t assetsys_mount_from_memory( assetsys_t* sys, void const* data, int size, char const* mount_as);
 assetsys_error_t assetsys_dismount( assetsys_t* sys, char const* path, char const* mounted_as );
 
 typedef struct assetsys_file_t { ASSETSYS_U64 mount; ASSETSYS_U64 path; int index; } assetsys_file_t;
@@ -255,9 +256,9 @@ If multiple mounts contains the same file and it is accessible through the same 
 
 
 assetsys_mount_from_memory
--------------------
+--------------------------
 
-    assetsys_error_t assetsys_mount_from_memory( assetsys_t* sys, void const* data, size_t size, char const* mount_as )
+    assetsys_error_t assetsys_mount_from_memory( assetsys_t* sys, void const* data, int size, char const* mount_as )
 
 Same as `assetsys_mount()`, but takes a data buffer of an archived *.zip* file, along with the size of the file.
 
@@ -5999,7 +6000,7 @@ struct assetsys_internal_mount_t* assetsys_internal_create_mount( assetsys_t* sy
     return mount;
     }
 
-assetsys_error_t assetsys_mount_from_memory( assetsys_t* sys, void const* data, size_t size, char const* mount_as)
+assetsys_error_t assetsys_mount_from_memory( assetsys_t* sys, void const* data, int size, char const* mount_as)
     {
     if (!data) return ASSETSYS_ERROR_INVALID_PARAMETER;
     if( !mount_as ) return ASSETSYS_ERROR_INVALID_PARAMETER;
@@ -6442,7 +6443,7 @@ void test_assetsys( void ) {
             0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x5a, 0x00, 0x00, 0x00, 0x34, 0x00, 
             0x00, 0x00, 0x00, 0x00
         };
-        const size_t data_size = 164;
+        const int data_size = 164;
 
         // Create the asset system
         assetsys_t* assetsys = assetsys_create( 0 );
