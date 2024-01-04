@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-assetsys.h - v1.4 - File system abstraction to read from zip-files, for C/C++.
+assetsys.h - v1.5 - File system abstraction to read from zip-files, for C/C++.
 
 Do this:
     #define ASSETSYS_IMPLEMENTATION
@@ -5754,7 +5754,7 @@ static void assetsys_internal_collate_directories( assetsys_t* sys, struct asset
         if( file->parent < 0 )
             {
             char* file_path = assetsys_internal_dirname( assetsys_internal_get_string( sys, file->path ) ) ;
-            ASSETSYS_U64 handle = strpool_inject( &sys->strpool, file_path, (int) strlen( file_path ) - 1 );
+            ASSETSYS_U64 handle = strpool_inject( &sys->strpool, file_path, file_path[0] == '/' && file_path[1] == '\0' ? 1 : (int) strlen( file_path ) - 1 );
             for( int j = 0; j < sys->collated_count; ++j )
                 {
                 struct assetsys_internal_collated_t* dir = &sys->collated[ j ];
@@ -5807,7 +5807,7 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
             if( stat( sys->temp, &s ) == 0 )
                 {
                 strcpy( sys->temp, assetsys_internal_get_string( sys, mount->mounted_as ) );
-                strcat( sys->temp, "/" );
+                if( *sys->temp && sys->temp[ strlen( sys->temp ) - 1 ] != '/' ) strcat( sys->temp, "/" );
                 strcat( sys->temp, file_path );
                 strcat( sys->temp, *file_path == '\0' ? "" : "/" );
                 strcat( sys->temp, name );
@@ -5844,7 +5844,7 @@ static void assetsys_internal_recurse_directories( assetsys_t* sys, int const co
             if( stat( sys->temp, &s ) == 0 )
                 {
                 strcpy( sys->temp, assetsys_internal_get_string( sys, mount->mounted_as ) );
-                strcat( sys->temp, "/" );
+                if( *sys->temp && sys->temp[ strlen( sys->temp ) - 1 ] != '/' ) strcat( sys->temp, "/" );
                 strcat( sys->temp, folder_path );
                 strcat( sys->temp, *folder_path == '\0' ? "" : "/" );
                 strcat( sys->temp, name );
@@ -6519,6 +6519,7 @@ contributors:
     Rob Loach (assetsys_mount_from_memory)
 
 revision history:
+    1.5     fix issue where mount as root "/" didn't work when mounting folder
     1.4     allow mounting from memory
     1.3     allow absolute paths when mounting, update docs for mount as root
     1.2     asserts with message, eliminated a frequent small allocation
