@@ -3481,6 +3481,8 @@ init_failed:
         app->sound_user_data = NULL;
         }
 
+    // Free cursor 
+    SDL_SetRelativeMouseMode( SDL_FALSE );
     if( app->cursor ) SDL_FreeCursor( app->cursor );
 
     //Destroy window
@@ -3585,6 +3587,10 @@ static void app_internal_add_input_event( app_t* app, app_input_event_t* event )
     {
     if( app->has_focus )
         {
+            // Capture mouse if user has clicked on Window
+            if ( SDL_GetMouseFocus() == app->window ) {
+                SDL_SetRelativeMouseMode( SDL_TRUE );
+            }
         if( app->input_count < sizeof( app->input_events ) / sizeof( *app->input_events ) )
             app->input_events[ app->input_count++ ] = *event;
         }
