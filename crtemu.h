@@ -21,19 +21,17 @@ before you include this file in *one* C/C++ file to create the implementation.
     #define CRTEMU_U64 unsigned long long
 #endif
 
+typedef enum crtemu_type_t {
+    CRTEMU_TYPE_TV,
+    CRTEMU_TYPE_PC,
+    CRTEMU_TYPE_LITE,
+} crtemu_type_t;
+
 typedef struct crtemu_t crtemu_t;
 
-crtemu_t* crtemu_create( void* memctx );
+crtemu_t* crtemu_create( crtemu_type_t type, void* memctx );
 
 void crtemu_destroy( crtemu_t* crtemu );
-
-typedef struct crtemu_config_t
-    {
-    float curvature, scanlines, shadow_mask, separation, ghosting, noise, flicker, vignette, distortion, aspect_lock,
-        hpos, vpos, hsize, vsize, contrast, brightness, saturation, blur, degauss; // range -1.0f to 1.0f, default=0.0f
-    } crtemu_config_t;
-
-void crtemu_config(crtemu_t* crtemu, crtemu_config_t const* config);
 
 void crtemu_frame( crtemu_t* crtemu, CRTEMU_U32* frame_abgr, int frame_width, int frame_height );
 
@@ -41,7 +39,6 @@ void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pix
     CRTEMU_U32 mod_xbgr, CRTEMU_U32 border_xbgr );
 
 void crtemu_coordinates_window_to_bitmap( crtemu_t* crtemu, int width, int height, int* x, int* y );
-void crtemu_coordinates_bitmap_to_window( crtemu_t* crtemu, int width, int height, int* x, int* y );
 
 #endif /* crtemu_h */
 
@@ -207,13 +204,13 @@ void crtemu_coordinates_bitmap_to_window( crtemu_t* crtemu, int width, int heigh
 #endif
 
 
-struct crtemu_t
-    {
+struct crtemu_t {
+    crtemu_type_t type;
     void* memctx;
-    crtemu_config_t config;
 
     CRTEMU_GLuint vertexbuffer;
     CRTEMU_GLuint backbuffer;
+    CRTEMU_GLuint fbo_backbuffer;
 
     CRTEMU_GLuint accumulatetexture_a;
     CRTEMU_GLuint accumulatetexture_b;
@@ -286,11 +283,10 @@ struct crtemu_t
     #ifdef CRTEMU_REPORT_SHADER_ERRORS
         void (CRTEMU_GLCALLTYPE* GetShaderInfoLog) (CRTEMU_GLuint shader, CRTEMU_GLsizei bufSize, CRTEMU_GLsizei *length, CRTEMU_GLchar *infoLog);
     #endif
-    };
+};
 
 
-static CRTEMU_GLuint crtemu_internal_build_shader( crtemu_t* crtemu, char const* vs_source, char const* fs_source )
-    {
+static CRTEMU_GLuint crtemu_internal_build_shader( crtemu_t* crtemu, char const* vs_source, char const* fs_source ) {
     #ifdef CRTEMU_REPORT_SHADER_ERRORS
         char error_message[ 1024 ];
     #endif
@@ -300,8 +296,7 @@ static CRTEMU_GLuint crtemu_internal_build_shader( crtemu_t* crtemu, char const*
     crtemu->CompileShader( vs );
     CRTEMU_GLint vs_compiled;
     crtemu->GetShaderiv( vs, CRTEMU_GL_COMPILE_STATUS, &vs_compiled );
-    if( !vs_compiled )
-        {
+    if( !vs_compiled ) {
         #ifdef CRTEMU_REPORT_SHADER_ERRORS
             char const* prefix = "Vertex Shader Error: ";
             strcpy( error_message, prefix );
@@ -312,15 +307,14 @@ static CRTEMU_GLuint crtemu_internal_build_shader( crtemu_t* crtemu, char const*
             CRTEMU_REPORT_ERROR( error_message );
         #endif
         return 0;
-        }
+    }
 
     CRTEMU_GLuint fs = crtemu->CreateShader( CRTEMU_GL_FRAGMENT_SHADER );
     crtemu->ShaderSource( fs, 1, (char const**) &fs_source, NULL );
     crtemu->CompileShader( fs );
     CRTEMU_GLint fs_compiled;
     crtemu->GetShaderiv( fs, CRTEMU_GL_COMPILE_STATUS, &fs_compiled );
-    if( !fs_compiled )
-        {
+    if( !fs_compiled ) {
         #ifdef CRTEMU_REPORT_SHADER_ERRORS
             char const* prefix = "Fragment Shader Error: ";
             strcpy( error_message, prefix );
@@ -331,7 +325,7 @@ static CRTEMU_GLuint crtemu_internal_build_shader( crtemu_t* crtemu, char const*
             CRTEMU_REPORT_ERROR( error_message );
         #endif
         return 0;
-        }
+    }
 
 
     CRTEMU_GLuint prg = crtemu->CreateProgram();
@@ -342,8 +336,7 @@ static CRTEMU_GLuint crtemu_internal_build_shader( crtemu_t* crtemu, char const*
 
     CRTEMU_GLint linked;
     crtemu->GetProgramiv( prg, CRTEMU_GL_LINK_STATUS, &linked );
-    if( !linked )
-        {
+    if( !linked ) {
         #ifdef CRTEMU_REPORT_SHADER_ERRORS
             char const* prefix = "Shader Link Error: ";
             strcpy( error_message, prefix );
@@ -354,15 +347,13 @@ static CRTEMU_GLuint crtemu_internal_build_shader( crtemu_t* crtemu, char const*
             CRTEMU_REPORT_ERROR( error_message );
         #endif
         return 0;
-        }
-
-    return prg;
     }
 
+    return prg;
+}
 
-crtemu_t* crtemu_create( void* memctx )
-    {
 
+bool crtemu_shaders_tv( crtemu_t* crtemu ) {
     char const* vs_source =
         #ifdef CRTEMU_WEBGL
             "precision highp float;\n\n"
@@ -606,30 +597,492 @@ crtemu_t* crtemu_create( void* memctx )
         "    }   "
         "";
 
+    crtemu->crt_shader = crtemu_internal_build_shader( crtemu, vs_source, crt_fs_source );
+    if( crtemu->crt_shader == 0 ) return false;
+
+    crtemu->blur_shader = crtemu_internal_build_shader( crtemu, vs_source, blur_fs_source );
+    if( crtemu->blur_shader == 0 ) return false;
+
+    crtemu->accumulate_shader = crtemu_internal_build_shader( crtemu, vs_source, accumulate_fs_source );
+    if( crtemu->accumulate_shader == 0 ) return false;
+
+    crtemu->blend_shader = crtemu_internal_build_shader( crtemu, vs_source, blend_fs_source );
+    if( crtemu->blend_shader == 0 ) return false;
+
+    crtemu->copy_shader = crtemu_internal_build_shader( crtemu, vs_source, copy_fs_source );
+    if( crtemu->copy_shader == 0 ) return false;
+
+    return true;
+}
+
+
+bool crtemu_shaders_pc( crtemu_t* crtemu ) {
+    char const* vs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "attribute vec4 pos;"
+        "varying vec2 uv;"
+        ""
+        "void main( void )"
+        "    {"
+        "    gl_Position = vec4( pos.xy, 0.0, 1.0 );"
+        "    uv = pos.zw;"
+        "    }";
+
+    char const* crt_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        "\n"
+        "varying vec2 uv;\n"
+        "\n"
+        "uniform vec3 modulate;\n"
+        "uniform vec2 resolution;\n"
+        "uniform vec2 size;\n"
+        "uniform float time;\n"
+        "uniform sampler2D backbuffer;\n"
+        "uniform sampler2D blurbuffer;\n"
+        "uniform sampler2D frametexture;\n"
+        "uniform float use_frame;\n"
+        "\n"
+        #ifdef CRTEMU_WEBGL
+            // WebGL does not support GL_CLAMP_TO_BORDER so we overwrite texture2D
+            // with this function which emulates the clamp-to-border behavior
+            "vec4 texture2Dborder(sampler2D samp, vec2 tc)\n"
+            "    {\n"
+            "    float borderdist = .502-max(abs(.5-tc.x), abs(.5-tc.y));\n"
+            "    float borderfade = clamp(borderdist * 400.0, 0.0, 1.0);\n"
+            "    return texture2D( samp, tc ) * borderfade;\n"
+            "    }\n"
+            "#define texture2D texture2Dborder\n"
+        #endif
+        "vec3 tsample( sampler2D samp, vec2 tc, float offs, vec2 resolution )\n"
+        "    {\n"
+        "    tc = tc * vec2(1.156, 1.156) - vec2( 0.078 + 0.003, 0.078 );\n"
+        "    vec3 s = pow( abs( texture2D( samp, vec2( tc.x, 1.0-tc.y ) ).rgb), vec3( 2.2 ) );\n"
+        "    return s*vec3(1.25);\n"
+        "    }\n"
+        "\n"
+        "vec3 filmic( vec3 LinearColor )\n"
+        "    {\n"
+        "    vec3 x = max( vec3(0.0), LinearColor-vec3(0.004));\n"
+        "    return (x*(6.2*x+0.5))/(x*(6.2*x+1.7)+0.06);\n"
+        "    }\n"
+        "\n"
+        "vec2 curve( vec2 uv )\n"
+        "    {\n"
+        "    uv = (uv - 0.5) * 2.0;\n"
+        "    uv *= 1.1; \n"
+        "    uv.x *= 1.0 + pow((abs(uv.y) / 5.0), 2.0);\n"
+        "    uv.y *= 1.0 + pow((abs(uv.x) / 4.0), 2.0);\n"
+        "    uv  = (uv / 2.0) + 0.5;\n"
+        "    uv =  uv *0.92 + 0.04;\n"
+        "    return uv;\n"
+        "    }\n"
+        "\n"
+        "float rand(vec2 co)\n"
+        "    {\n"
+        "    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);\n"
+        "    }\n"
+        "    \n"
+        "void main(void)\n"
+        "   {\n"
+        "    /* Curve */\n"
+        "    vec2 curved_uv = mix( curve( uv ), uv, 0.8 );\n"
+        "    float scale = 0.04;\n"
+        "    vec2 scuv = curved_uv*(1.0-scale)+scale/2.0+vec2(0.003, -0.001);\n"
+        "\n"
+        "    /* Main color, Bleed */\n"
+        "    vec3 col;\n"
+        "    float x =  sin(0.1*time+curved_uv.y*13.0)*sin(0.23*time+curved_uv.y*19.0)*sin(0.3+0.11*time+curved_uv.y*23.0)*0.0012;\n"
+        "    float o =sin(gl_FragCoord.y*1.5)/resolution.x;\n"
+        "    x+=o*0.25;\n"
+        "   x *= 0.2;\n"
+        "    col.r = tsample(backbuffer,vec2(x+scuv.x+0.0009*0.25,scuv.y+0.0009*0.25),resolution.y/800.0, resolution ).x+0.02;\n"
+        "    col.g = tsample(backbuffer,vec2(x+scuv.x+0.0000*0.25,scuv.y-0.0011*0.25),resolution.y/800.0, resolution ).y+0.02;\n"
+        "    col.b = tsample(backbuffer,vec2(x+scuv.x-0.0015*0.25,scuv.y+0.0000*0.25),resolution.y/800.0, resolution ).z+0.02;\n"
+        "    float i = clamp(col.r*0.299 + col.g*0.587 + col.b*0.114, 0.0, 1.0 );       \n"
+        "    i = pow( 1.0 - pow(i,2.0), 1.0 );\n"
+        "    i = (1.0-i) * 0.85 + 0.15; \n"
+        "\n"
+        "    /* Ghosting */\n"
+        "    float ghs = 0.05;\n"
+        "    vec3 r = tsample(blurbuffer, vec2(x-0.014*1.0, -0.027)*0.45+0.007*vec2( 0.35*sin(1.0/7.0 + 15.0*curved_uv.y + 0.9*time), \n"
+        "        0.35*sin( 2.0/7.0 + 10.0*curved_uv.y + 1.37*time) )+vec2(scuv.x+0.001,scuv.y+0.001),\n"
+        "        5.5+1.3*sin( 3.0/9.0 + 31.0*curved_uv.x + 1.70*time),resolution).xyz*vec3(0.5,0.25,0.25);\n"
+        "    vec3 g = tsample(blurbuffer, vec2(x-0.019*1.0, -0.020)*0.45+0.007*vec2( 0.35*cos(1.0/9.0 + 15.0*curved_uv.y + 0.5*time), \n"
+        "        0.35*sin( 2.0/9.0 + 10.0*curved_uv.y + 1.50*time) )+vec2(scuv.x+0.000,scuv.y-0.002),\n"
+        "        5.4+1.3*sin( 3.0/3.0 + 71.0*curved_uv.x + 1.90*time),resolution).xyz*vec3(0.25,0.5,0.25);\n"
+        "    vec3 b = tsample(blurbuffer, vec2(x-0.017*1.0, -0.003)*0.35+0.007*vec2( 0.35*sin(2.0/3.0 + 15.0*curved_uv.y + 0.7*time), \n"
+        "        0.35*cos( 2.0/3.0 + 10.0*curved_uv.y + 1.63*time) )+vec2(scuv.x-0.002,scuv.y+0.000),\n"
+        "        5.3+1.3*sin( 3.0/7.0 + 91.0*curved_uv.x + 1.65*time),resolution).xyz*vec3(0.25,0.25,0.5);\n"
+        "\n"
+        "    col += vec3(ghs*(1.0-0.299))*pow(clamp(vec3(3.0)*r,vec3(0.0),vec3(1.0)),vec3(2.0))*vec3(i);\n"
+        "    col += vec3(ghs*(1.0-0.587))*pow(clamp(vec3(3.0)*g,vec3(0.0),vec3(1.0)),vec3(2.0))*vec3(i);\n"
+        "    col += vec3(ghs*(1.0-0.114))*pow(clamp(vec3(3.0)*b,vec3(0.0),vec3(1.0)),vec3(2.0))*vec3(i);\n"
+        "\n"
+        "    /* Level adjustment (curves) */\n"
+        "    col *= vec3(0.95,0.95,0.95);\n"
+        "    col = clamp(col*1.3 + 0.75*col*col + 1.25*col*col*col*col*col,vec3(0.0),vec3(10.0));\n"
+        "\n"
+        "    /* Vignette */\n"
+        "    float vig = (0.1 + 1.0*16.0*curved_uv.x*curved_uv.y*(1.0-curved_uv.x)*(1.0-curved_uv.y));\n"
+        "    vig = 1.3*pow(vig,0.5);\n"
+        "    col *= vig;\n"
+        "\n"
+        "    /* Scanlines */\n"
+        "    float scans = clamp( 0.5+0.2*sin(cos(20.0*time)*0.32+curved_uv.y*size.y*1.75), 0.0, 1.0);\n"
+        "    float s = pow(scans,0.9);\n"
+        "    col = col * vec3(s);\n"
+        "\n"
+        "    /* Vertical lines (shadow mask) */\n"
+        "    col*=1.0-0.23*(clamp((mod(gl_FragCoord.xy.x, 3.0))/2.0,0.0,1.0));\n"
+        "\n"
+        "    /* Tone map */\n"
+        "    col = filmic( col );\n"
+        "\n"
+        "    /* Noise */\n"
+        "    //vec2 seed = floor(curved_uv*resolution.xy*vec2(0.5))/resolution.xy;\n"
+        "    vec2 seed = curved_uv*resolution.xy;;\n"
+        "    /* seed = curved_uv; */\n"
+        "    col -= 0.015*pow(vec3(rand( seed +time ), rand( seed +time*2.0 ), rand( seed +time * 3.0 ) ), vec3(1.5) );\n"
+        "\n"
+        "    /* Flicker */\n"
+        "    col *= (1.0-0.004*(sin(50.0*time+curved_uv.y*2.0)*0.5+0.5));\n"
+        "\n"
+        "    /* Clamp */\n"
+        "    if (curved_uv.x < 0.0 || curved_uv.x > 1.0)\n"
+        "        col *= 0.0;\n"
+        "    if (curved_uv.y < 0.0 || curved_uv.y > 1.0)\n"
+        "        col *= 0.0;\n"
+        "    col*=modulate; \n"
+        "    /* Frame */\n"
+        "   vec2 fuv=vec2( uv.x, 1.0 - uv.y);\n"
+        "    vec4 f=texture2D(frametexture, fuv);\n"
+        "    col = mix( col, mix( max( col, 0.0), f.xyz, f.w), vec3( use_frame) );\n"
+        "    \n"
+        "   gl_FragColor = vec4( col, 1.0 );\n"
+        "   }\n"
+        "   \n"
+        "";
+
+    char const* blur_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "varying vec2 uv;"
+        ""
+        "uniform vec2 blur;"
+        "uniform sampler2D texture;"
+        ""
+        "void main( void )"
+        "    {"
+        "    vec4 sum = texture2D( texture, uv ) * 0.2270270270;"
+        "    sum += texture2D(texture, vec2( uv.x - 4.0 * blur.x, uv.y - 4.0 * blur.y ) ) * 0.0162162162;"
+        "    sum += texture2D(texture, vec2( uv.x - 3.0 * blur.x, uv.y - 3.0 * blur.y ) ) * 0.0540540541;"
+        "    sum += texture2D(texture, vec2( uv.x - 2.0 * blur.x, uv.y - 2.0 * blur.y ) ) * 0.1216216216;"
+        "    sum += texture2D(texture, vec2( uv.x - 1.0 * blur.x, uv.y - 1.0 * blur.y ) ) * 0.1945945946;"
+        "    sum += texture2D(texture, vec2( uv.x + 1.0 * blur.x, uv.y + 1.0 * blur.y ) ) * 0.1945945946;"
+        "    sum += texture2D(texture, vec2( uv.x + 2.0 * blur.x, uv.y + 2.0 * blur.y ) ) * 0.1216216216;"
+        "    sum += texture2D(texture, vec2( uv.x + 3.0 * blur.x, uv.y + 3.0 * blur.y ) ) * 0.0540540541;"
+        "    sum += texture2D(texture, vec2( uv.x + 4.0 * blur.x, uv.y + 4.0 * blur.y ) ) * 0.0162162162;"
+        "    gl_FragColor = sum;"
+        "    }   "
+        "";
+
+
+    char const* accumulate_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "varying vec2 uv;"
+        ""
+        "uniform sampler2D tex0;"
+        "uniform sampler2D tex1;"
+        "uniform float modulate;"
+        ""
+        "void main( void )"
+        "    {"
+        "    vec4 a = texture2D( tex0, uv ) * vec4( modulate );"
+        "    vec4 b = texture2D( tex1, uv );"
+        ""
+        "    gl_FragColor = max( a, b * 0.96 );"
+        "    }   "
+        "";
+
+    char const* blend_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "varying vec2 uv;"
+        ""
+        "uniform sampler2D tex0;"
+        "uniform sampler2D tex1;"
+        "uniform float modulate;"
+        ""
+        "void main( void )"
+        "    {"
+        "    vec4 a = texture2D( tex0, uv ) * vec4( modulate );"
+        "    vec4 b = texture2D( tex1, uv );"
+        ""
+        "    gl_FragColor = max( a, b * 0.24 );"
+        "    }   "
+        "";
+
+    char const* copy_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "varying vec2 uv;"
+        ""
+        "uniform sampler2D tex0;"
+        ""
+        "void main( void )"
+        "    {"
+        "    gl_FragColor = texture2D( tex0, uv );"
+        "    }   "
+        "";
+
+    crtemu->crt_shader = crtemu_internal_build_shader( crtemu, vs_source, crt_fs_source );
+    if( crtemu->crt_shader == 0 ) return false;
+
+    crtemu->blur_shader = crtemu_internal_build_shader( crtemu, vs_source, blur_fs_source );
+    if( crtemu->blur_shader == 0 ) return false;
+
+    crtemu->accumulate_shader = crtemu_internal_build_shader( crtemu, vs_source, accumulate_fs_source );
+    if( crtemu->accumulate_shader == 0 ) return false;
+
+    crtemu->blend_shader = crtemu_internal_build_shader( crtemu, vs_source, blend_fs_source );
+    if( crtemu->blend_shader == 0 ) return false;
+
+    crtemu->copy_shader = crtemu_internal_build_shader( crtemu, vs_source, copy_fs_source );
+    if( crtemu->copy_shader == 0 ) return false;
+
+    return true;
+}
+
+
+bool crtemu_shaders_lite( crtemu_t* crtemu ) {
+    char const* vs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "attribute vec4 pos;"
+        "varying vec2 uv;"
+        ""
+        "void main( void )"
+        "    {"
+        "    gl_Position = vec4( pos.xy, 0.0, 1.0 );"
+        "    uv = pos.zw;"
+        "    }";
+
+    char const* crt_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        "\n"
+        "varying vec2 uv;\n"
+        "\n"
+        "uniform vec3 modulate;\n"
+        "uniform vec2 resolution;\n"
+        "uniform vec2 size;\n"
+        "uniform float time;\n"
+        "uniform sampler2D backbuffer;\n"
+        "uniform sampler2D blurbuffer;\n"
+        "uniform sampler2D frametexture;\n"
+        "uniform float use_frame;\n"
+        "\n"
+       /* #ifdef CRTEMU_WEBGL
+            // WebGL does not support GL_CLAMP_TO_BORDER so we overwrite texture2D
+            // with this function which emulates the clamp-to-border behavior
+            "vec4 texture2Dborder(sampler2D samp, vec2 tc)\n"
+            "    {\n"
+            "    float borderdist = .502-max(abs(.5-tc.x), abs(.5-tc.y));\n"
+            "    float borderfade = clamp(borderdist * 400.0, 0.0, 1.0);\n"
+            "    return texture2D( samp, tc ) * borderfade;\n"
+            "    }\n"
+            "#define texture2D texture2Dborder\n"
+        #endif*/
+        "vec3 tsample( sampler2D samp, vec2 tc )\n"
+        "    {\n"
+        "    vec3 s = pow( abs( texture2D( samp, vec2( tc.x, 1.0-tc.y ) ).rgb), vec3( 2.2 ) );\n"
+        "    return s;\n"
+        "    }\n"
+        "\n"
+        "vec3 filmic( vec3 LinearColor )\n"
+        "    {\n"
+        "    vec3 x = max( vec3(0.0), LinearColor-vec3(0.004));\n"
+        "    return (x*(6.2*x+0.5))/(x*(6.2*x+1.7)+0.06);\n"
+        "    }\n"
+        "\n"
+        "void main(void)\n"
+        "   {\n"
+        "    // Main color\n"
+        "    vec3 col;\n"
+        "    col = mix( tsample(backbuffer,uv ), tsample(frametexture,uv ), 0.45 );\n"
+        "    col = 3.0*col + pow( col, vec3( 3.0 ) );\n"
+        "    col += tsample(blurbuffer,uv )*0.3;\n"
+        "\n"
+        "    // Scanlines\n"
+        "    float scans = clamp( 0.5-0.5*cos( uv.y * 6.28319 * (size.y ) ), 0.0, 1.0);\n"
+        "    float s = pow(scans,1.3);\n"
+        "    col = mix( col, col * vec3(s), 0.7 );\n"
+        "\n"
+        "    // Vertical lines (shadow mask)\n"
+        "    col*=1.0-0.23*(clamp((mod(gl_FragCoord.xy.x, 3.0))/2.0,0.0,1.0));\n"
+        "\n"
+        "    // Vignette\n"
+        "    float vig = (0.1 + 1.0*16.0*uv.x*uv.y*(1.0-uv.x)*(1.0-uv.y));\n"
+        "    vig = 1.3*pow(vig,0.5);\n"
+        "    col = mix( col, col*vig, 0.2 );\n"
+        "\n"
+        "    // Tone map\n"
+        "    col = mix( pow( col, vec3(1.0 / 2.2) ), filmic( col ), 0.5 );\n"
+        "\n"
+        "    col*=modulate; \n"
+        "    gl_FragColor = vec4( col, 1.0 );\n"
+        "   }\n"
+        "   \n"
+        "";
+
+    char const* blur_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "varying vec2 uv;"
+        ""
+        "uniform vec2 blur;"
+        "uniform sampler2D texture;"
+        ""
+        "void main( void )"
+        "    {"
+        "    vec4 sum = texture2D( texture, uv ) * 0.2270270270;"
+        "    sum += texture2D(texture, vec2( uv.x - 4.0 * blur.x, uv.y - 4.0 * blur.y ) ) * 0.0162162162;"
+        "    sum += texture2D(texture, vec2( uv.x - 3.0 * blur.x, uv.y - 3.0 * blur.y ) ) * 0.0540540541;"
+        "    sum += texture2D(texture, vec2( uv.x - 2.0 * blur.x, uv.y - 2.0 * blur.y ) ) * 0.1216216216;"
+        "    sum += texture2D(texture, vec2( uv.x - 1.0 * blur.x, uv.y - 1.0 * blur.y ) ) * 0.1945945946;"
+        "    sum += texture2D(texture, vec2( uv.x + 1.0 * blur.x, uv.y + 1.0 * blur.y ) ) * 0.1945945946;"
+        "    sum += texture2D(texture, vec2( uv.x + 2.0 * blur.x, uv.y + 2.0 * blur.y ) ) * 0.1216216216;"
+        "    sum += texture2D(texture, vec2( uv.x + 3.0 * blur.x, uv.y + 3.0 * blur.y ) ) * 0.0540540541;"
+        "    sum += texture2D(texture, vec2( uv.x + 4.0 * blur.x, uv.y + 4.0 * blur.y ) ) * 0.0162162162;"
+        "    gl_FragColor = sum;"
+        "    }   "
+        "";
+
+
+    char const* accumulate_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "varying vec2 uv;"
+        ""
+        "uniform sampler2D tex0;"
+        "uniform sampler2D tex1;"
+        "uniform float modulate;"
+        ""
+        "void main( void )"
+        "    {"
+        "    vec4 a = texture2D( tex0, uv ) * vec4( modulate );"
+        "    vec4 b = texture2D( tex1, uv );"
+        ""
+        "    gl_FragColor = max( a, b * 0.96 );"
+        "    }   "
+        "";
+
+    char const* blend_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "varying vec2 uv;"
+        ""
+        "uniform sampler2D tex0;"
+        "uniform sampler2D tex1;"
+        "uniform float modulate;"
+        ""
+        "void main( void )"
+        "    {"
+        "    vec4 a = texture2D( tex0, uv ) * vec4( modulate );"
+        "    vec4 b = texture2D( tex1, uv );"
+        ""
+        "    gl_FragColor = max( a, b * 0.2 );"
+        "    }   "
+        "";
+
+    char const* copy_fs_source =
+        #ifdef CRTEMU_WEBGL
+            "precision highp float;\n\n"
+        #else
+            "#version 120\n\n"
+        #endif
+        ""
+        "varying vec2 uv;"
+        ""
+        "uniform sampler2D tex0;"
+        ""
+        "void main( void )"
+        "    {"
+        "    gl_FragColor = texture2D( tex0, uv );"
+        "    }   "
+        "";
+
+    crtemu->crt_shader = crtemu_internal_build_shader( crtemu, vs_source, crt_fs_source );
+    if( crtemu->crt_shader == 0 ) return false;
+
+    crtemu->blur_shader = crtemu_internal_build_shader( crtemu, vs_source, blur_fs_source );
+    if( crtemu->blur_shader == 0 ) return false;
+
+    crtemu->accumulate_shader = crtemu_internal_build_shader( crtemu, vs_source, accumulate_fs_source );
+    if( crtemu->accumulate_shader == 0 ) return false;
+
+    crtemu->blend_shader = crtemu_internal_build_shader( crtemu, vs_source, blend_fs_source );
+    if( crtemu->blend_shader == 0 ) return false;
+
+    crtemu->copy_shader = crtemu_internal_build_shader( crtemu, vs_source, copy_fs_source );
+    if( crtemu->copy_shader == 0 ) return false;
+
+    return true;
+
+}
+
+
+crtemu_t* crtemu_create( crtemu_type_t type, void* memctx ) {
     crtemu_t* crtemu = (crtemu_t*) CRTEMU_MALLOC( memctx, sizeof( crtemu_t ) );
     memset( crtemu, 0, sizeof( crtemu_t ) );
+    crtemu->type = type;
     crtemu->memctx = memctx;
-
-    crtemu->config.curvature = 0.0f;
-    crtemu->config.scanlines = 0.0f;
-    crtemu->config.shadow_mask = 0.0f;
-    crtemu->config.separation = 0.0f;
-    crtemu->config.ghosting = 0.0f;
-    crtemu->config.noise = 0.0f;
-    crtemu->config.flicker = 0.0f;
-    crtemu->config.vignette = 0.0f;
-    crtemu->config.distortion = 0.0f;
-    crtemu->config.aspect_lock = 0.0f;
-    crtemu->config.hpos = 0.0f;
-    crtemu->config.vpos = 0.0f;
-    crtemu->config.hsize = 0.0f;
-    crtemu->config.vsize = 0.0f;
-    crtemu->config.contrast = 0.0f;
-    crtemu->config.brightness = 0.0f;
-    crtemu->config.saturation = 0.0f;
-    crtemu->config.blur = 0.0f;
-    crtemu->config.degauss = 0.0f;
-
+        
     crtemu->use_frame = 0.0f;
 
     crtemu->last_present_width = 0;
@@ -826,21 +1279,17 @@ crtemu_t* crtemu_create( void* memctx )
         if( !crtemu->GetShaderInfoLog ) goto failed;
     #endif
 
-    crtemu->crt_shader = crtemu_internal_build_shader( crtemu, vs_source, crt_fs_source );
-    if( crtemu->crt_shader == 0 ) goto failed;
-
-    crtemu->blur_shader = crtemu_internal_build_shader( crtemu, vs_source, blur_fs_source );
-    if( crtemu->blur_shader == 0 ) goto failed;
-
-    crtemu->accumulate_shader = crtemu_internal_build_shader( crtemu, vs_source, accumulate_fs_source );
-    if( crtemu->accumulate_shader == 0 ) goto failed;
-
-    crtemu->blend_shader = crtemu_internal_build_shader( crtemu, vs_source, blend_fs_source );
-    if( crtemu->blend_shader == 0 ) goto failed;
-
-    crtemu->copy_shader = crtemu_internal_build_shader( crtemu, vs_source, copy_fs_source );
-    if( crtemu->copy_shader == 0 ) goto failed;
-
+    switch( type ) {
+        case CRTEMU_TYPE_TV: {
+            if( !crtemu_shaders_tv( crtemu ) ) goto failed;               
+        } break;
+        case CRTEMU_TYPE_PC: {
+            if( !crtemu_shaders_pc( crtemu ) ) goto failed;
+        } break;
+        case CRTEMU_TYPE_LITE: {
+            if( !crtemu_shaders_lite( crtemu ) ) goto failed;
+        } break;
+    }
 
     crtemu->GenTextures( 1, &crtemu->accumulatetexture_a );
     crtemu->GenFramebuffers( 1, &crtemu->accumulatebuffer_a );
@@ -867,6 +1316,7 @@ crtemu_t* crtemu_create( void* memctx )
     crtemu->TexParameteri( CRTEMU_GL_TEXTURE_2D, CRTEMU_GL_TEXTURE_MAG_FILTER, CRTEMU_GL_LINEAR );
 
     crtemu->GenTextures( 1, &crtemu->backbuffer );
+    crtemu->GenFramebuffers( 1, &crtemu->fbo_backbuffer );
     #ifndef CRTEMU_WEBGL
         // This enable call is not necessary when using fragment shaders, avoid logged warnings in WebGL
         crtemu->Enable( CRTEMU_GL_TEXTURE_2D );
@@ -923,11 +1373,10 @@ failed:
     #endif
     CRTEMU_FREE( crtemu->memctx, crtemu );
     return 0;
-    }
+}
 
 
-void crtemu_destroy( crtemu_t* crtemu )
-    {
+void crtemu_destroy( crtemu_t* crtemu ) {
     crtemu->DeleteTextures( 1, &crtemu->accumulatetexture_a );
     crtemu->DeleteFramebuffers( 1, &crtemu->accumulatebuffer_a );
     crtemu->DeleteTextures( 1, &crtemu->accumulatetexture_b );
@@ -943,30 +1392,26 @@ void crtemu_destroy( crtemu_t* crtemu )
         FreeLibrary( crtemu->gl_dll );
     #endif
     CRTEMU_FREE( crtemu->memctx, crtemu );
+}
+
+
+void crtemu_frame( crtemu_t* crtemu, CRTEMU_U32* frame_abgr, int frame_width, int frame_height ) {
+    if( crtemu->type != CRTEMU_TYPE_LITE ) {
+        crtemu->ActiveTexture( CRTEMU_GL_TEXTURE3 );
+        crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->frametexture );
+        crtemu->TexImage2D( CRTEMU_GL_TEXTURE_2D, 0, CRTEMU_GL_RGBA, frame_width, frame_height, 0, CRTEMU_GL_RGBA, CRTEMU_GL_UNSIGNED_BYTE, frame_abgr );
+        if( frame_abgr ) {
+            crtemu->use_frame = 1.0f;
+        } else {
+            crtemu->use_frame = 0.0f;
+        }
     }
-
-
-void crtemu_config(crtemu_t* crtemu, crtemu_config_t const* config)
-    {
-    crtemu->config = *config;
-    }
-
-
-void crtemu_frame( crtemu_t* crtemu, CRTEMU_U32* frame_abgr, int frame_width, int frame_height )
-    {
-    crtemu->ActiveTexture( CRTEMU_GL_TEXTURE3 );
-    crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->frametexture );
-    crtemu->TexImage2D( CRTEMU_GL_TEXTURE_2D, 0, CRTEMU_GL_RGBA, frame_width, frame_height, 0, CRTEMU_GL_RGBA, CRTEMU_GL_UNSIGNED_BYTE, frame_abgr );
-    if( frame_abgr )
-        crtemu->use_frame = 1.0f;
-    else
-        crtemu->use_frame = 0.0f;
-    }
+}
 
 
 static void crtemu_internal_blur( crtemu_t* crtemu, CRTEMU_GLuint source, CRTEMU_GLuint blurbuffer_a, CRTEMU_GLuint blurbuffer_b,
-    CRTEMU_GLuint blurtexture_b, float r, int width, int height )
-    {
+    CRTEMU_GLuint blurtexture_b, float r, int width, int height ) {
+
     crtemu->BindFramebuffer( CRTEMU_GL_FRAMEBUFFER, blurbuffer_b );
     crtemu->UseProgram( crtemu->blur_shader );
     crtemu->Uniform2f( crtemu->GetUniformLocation( crtemu->blur_shader, "blur" ), r / (float) width, 0 );
@@ -992,17 +1437,50 @@ static void crtemu_internal_blur( crtemu_t* crtemu, CRTEMU_GLuint source, CRTEMU
     crtemu->ActiveTexture( CRTEMU_GL_TEXTURE0 );
     crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, 0 );
     crtemu->BindFramebuffer( CRTEMU_GL_FRAMEBUFFER, 0 );
-    }
+}
 
 
 void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pixels_xbgr, int width, int height,
-    CRTEMU_U32 mod_xbgr, CRTEMU_U32 border_xbgr )
-    {
+    CRTEMU_U32 mod_xbgr, CRTEMU_U32 border_xbgr ) {
+
     int viewport[ 4 ];
     crtemu->GetIntegerv( CRTEMU_GL_VIEWPORT, viewport );
+    
+    // Copy to backbuffer
+    if( pixels_xbgr ) {
+        crtemu->ActiveTexture( CRTEMU_GL_TEXTURE0 );
+        crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->backbuffer );
+        crtemu->TexImage2D( CRTEMU_GL_TEXTURE_2D, 0, CRTEMU_GL_RGBA, width, height, 0, CRTEMU_GL_RGBA, CRTEMU_GL_UNSIGNED_BYTE, pixels_xbgr );
+        crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, 0 );
+    } else {
+        if( width != crtemu->last_present_width || height != crtemu->last_present_height ) {
+            crtemu->ActiveTexture( CRTEMU_GL_TEXTURE1 );
+            crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->backbuffer );
+            crtemu->TexImage2D( CRTEMU_GL_TEXTURE_2D, 0, CRTEMU_GL_RGB, width, height, 0, CRTEMU_GL_RGB, CRTEMU_GL_UNSIGNED_BYTE, 0 );
+            crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->backbuffer );           
+            crtemu->BindFramebuffer( CRTEMU_GL_FRAMEBUFFER, crtemu->fbo_backbuffer );
+            crtemu->FramebufferTexture2D( CRTEMU_GL_FRAMEBUFFER, CRTEMU_GL_COLOR_ATTACHMENT0, CRTEMU_GL_TEXTURE_2D, crtemu->backbuffer, 0 );
+        }
+        crtemu->BindFramebuffer( CRTEMU_GL_FRAMEBUFFER, crtemu->fbo_backbuffer );
+        crtemu->Viewport( 0, 0, width, height );
+        crtemu->UseProgram( crtemu->copy_shader );
+        crtemu->Uniform1i( crtemu->GetUniformLocation( crtemu->copy_shader, "tex0" ), 0 );
+        CRTEMU_GLfloat vertices[] = {
+            -1.0f, -1.0f, 0.0f, 0.0f,
+             1.0f, -1.0f, 1.0f, 0.0f,
+             1.0f,  1.0f, 1.0f, 1.0f,
+            -1.0f,  1.0f, 0.0f, 1.0f,
+        };
+        crtemu->BufferData( CRTEMU_GL_ARRAY_BUFFER, 4 * 4 * sizeof( CRTEMU_GLfloat ), vertices, CRTEMU_GL_STATIC_DRAW );
+        crtemu->BindBuffer( CRTEMU_GL_ARRAY_BUFFER, crtemu->vertexbuffer );
+        crtemu->DrawArrays( CRTEMU_GL_TRIANGLE_FAN, 0, 4 );
+        crtemu->ActiveTexture( CRTEMU_GL_TEXTURE0 );
+        crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, 0 );
+        crtemu->BindFramebuffer( CRTEMU_GL_FRAMEBUFFER, 0 );
+        crtemu->Viewport( viewport[ 0 ], viewport[ 1 ], viewport[ 2 ], viewport[ 3 ] );
+    }
 
-    if( width != crtemu->last_present_width || height != crtemu->last_present_height )
-        {
+    if( width != crtemu->last_present_width || height != crtemu->last_present_height ) {
         crtemu->ActiveTexture( CRTEMU_GL_TEXTURE0 );
 
         crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->accumulatetexture_a );
@@ -1028,27 +1506,20 @@ void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pix
         crtemu->BindFramebuffer( CRTEMU_GL_FRAMEBUFFER, crtemu->blurbuffer_b );
         crtemu->FramebufferTexture2D( CRTEMU_GL_FRAMEBUFFER, CRTEMU_GL_COLOR_ATTACHMENT0, CRTEMU_GL_TEXTURE_2D, crtemu->blurtexture_b, 0 );
         crtemu->BindFramebuffer( CRTEMU_GL_FRAMEBUFFER, 0 );
-        }
+    }
 
 
     crtemu->last_present_width = width;
     crtemu->last_present_height = height;
 
-    CRTEMU_GLfloat vertices[] =
-        {
+    CRTEMU_GLfloat vertices[] = {
         -1.0f, -1.0f, 0.0f, 0.0f,
          1.0f, -1.0f, 1.0f, 0.0f,
          1.0f,  1.0f, 1.0f, 1.0f,
         -1.0f,  1.0f, 0.0f, 1.0f,
-        };
+    };
     crtemu->BufferData( CRTEMU_GL_ARRAY_BUFFER, 4 * 4 * sizeof( CRTEMU_GLfloat ), vertices, CRTEMU_GL_STATIC_DRAW );
     crtemu->BindBuffer( CRTEMU_GL_ARRAY_BUFFER, crtemu->vertexbuffer );
-
-    // Copy to backbuffer
-    crtemu->ActiveTexture( CRTEMU_GL_TEXTURE0 );
-    crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->backbuffer );
-    crtemu->TexImage2D( CRTEMU_GL_TEXTURE_2D, 0, CRTEMU_GL_RGBA, width, height, 0, CRTEMU_GL_RGBA, CRTEMU_GL_UNSIGNED_BYTE, pixels_xbgr );
-    crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, 0 );
 
     crtemu->Viewport( 0, 0, width, height );
 
@@ -1109,7 +1580,8 @@ void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pix
 
 
     // Add slight blur to backbuffer
-    crtemu_internal_blur( crtemu, crtemu->accumulatetexture_a, crtemu->accumulatebuffer_a, crtemu->blurbuffer_b, crtemu->blurtexture_b, 0.17f, width, height );
+    float backbuffer_blur = crtemu->type == CRTEMU_TYPE_TV ? 0.17f : 0.0f;
+    crtemu_internal_blur( crtemu, crtemu->accumulatetexture_a, crtemu->accumulatebuffer_a, crtemu->blurbuffer_b, crtemu->blurtexture_b, backbuffer_blur, width, height );
 
     // Create fully blurred version of backbuffer
     crtemu_internal_blur( crtemu, crtemu->accumulatetexture_a, crtemu->blurbuffer_a, crtemu->blurbuffer_b, crtemu->blurtexture_b, 1.0f, width, height );
@@ -1126,16 +1598,13 @@ void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pix
     int aspect_width = (int)( ( window_height * 4 ) / 3 );
     int aspect_height= (int)( ( window_width * 3 ) / 4 );
     int target_width, target_height;
-    if( aspect_height <= window_height )
-        {
+    if( aspect_height <= window_height ) {
         target_width = window_width;
         target_height = aspect_height;
-        }
-    else
-        {
+    } else {
         target_width = aspect_width;
         target_height = window_height;
-        }
+    }
 
     float hscale = target_width / (float) width;
     float vscale = target_height / (float) height;
@@ -1152,13 +1621,12 @@ void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pix
     y1 = ( y1 / window_height ) * 2.0f - 1.0f;
     y2 = ( y2 / window_height ) * 2.0f - 1.0f;
 
-    CRTEMU_GLfloat screen_vertices[] =
-        {
+    CRTEMU_GLfloat screen_vertices[] = {
         0.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 1.0f, 0.0f,
         0.0f, 0.0f, 1.0f, 1.0f,
         0.0f, 0.0f, 0.0f, 1.0f,
-        };
+    };
     screen_vertices[  0 ] = x1;
     screen_vertices[  1 ] = y1;
     screen_vertices[  4 ] = x2;
@@ -1168,12 +1636,14 @@ void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pix
     screen_vertices[ 12 ] = x1;
     screen_vertices[ 13 ] = y2;
 
-    crtemu->BufferData( CRTEMU_GL_ARRAY_BUFFER, 4 * 4 * sizeof( CRTEMU_GLfloat ), screen_vertices, CRTEMU_GL_STATIC_DRAW );
     crtemu->BindBuffer( CRTEMU_GL_ARRAY_BUFFER, crtemu->vertexbuffer );
+    crtemu->EnableVertexAttribArray( 0 );
+    crtemu->VertexAttribPointer( 0, 4, CRTEMU_GL_FLOAT, CRTEMU_GL_FALSE, 4 * sizeof( CRTEMU_GLfloat ), 0 );
+    crtemu->BufferData( CRTEMU_GL_ARRAY_BUFFER, 4 * 4 * sizeof( CRTEMU_GLfloat ), screen_vertices, CRTEMU_GL_STATIC_DRAW );
 
-    float r = ( ( border_xbgr >> 16 ) & 0xff ) / 255.0f;
+    float b = ( ( border_xbgr >> 16 ) & 0xff ) / 255.0f;
     float g = ( ( border_xbgr >> 8  ) & 0xff ) / 255.0f;
-    float b = ( ( border_xbgr       ) & 0xff ) / 255.0f;
+    float r = ( ( border_xbgr       ) & 0xff ) / 255.0f;
     crtemu->ClearColor( r, g, b, 1.0f );
     crtemu->Clear( CRTEMU_GL_COLOR_BUFFER_BIT );
 
@@ -1185,31 +1655,16 @@ void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pix
     crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "use_frame" ), crtemu->use_frame );
     crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "time" ), 1.5f * (CRTEMU_GLfloat)( ( (double) time_us ) / 1000000.0 ) );
     crtemu->Uniform2f( crtemu->GetUniformLocation( crtemu->crt_shader, "resolution" ), (float) window_width, (float) window_height );
-    crtemu->Uniform2f( crtemu->GetUniformLocation( crtemu->crt_shader, "size" ), (float) target_width, (float) target_height );
+    if( crtemu->type == CRTEMU_TYPE_LITE ) {
+        crtemu->Uniform2f( crtemu->GetUniformLocation( crtemu->crt_shader, "size" ), (float)( target_width / 2 >= width ? width : target_width / 2 ), (float) ( target_height / 2 >= height ? height : target_height / 2 ) );
+    } else {
+        crtemu->Uniform2f( crtemu->GetUniformLocation( crtemu->crt_shader, "size" ), (float) target_width, (float) target_height );
+    }
 
     float mod_r = ( ( mod_xbgr >> 16 ) & 0xff ) / 255.0f;
     float mod_g = ( ( mod_xbgr >> 8  ) & 0xff ) / 255.0f;
     float mod_b = ( ( mod_xbgr       ) & 0xff ) / 255.0f;
     crtemu->Uniform3f( crtemu->GetUniformLocation( crtemu->crt_shader, "modulate" ), mod_r, mod_g, mod_b );
-
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_curvature" ), crtemu->config.curvature );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_scanlines" ), crtemu->config.scanlines );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_shadow_mask" ), crtemu->config.shadow_mask );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_separation" ), crtemu->config.separation );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_ghosting" ), crtemu->config.ghosting );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_noise" ), crtemu->config.noise );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_flicker" ), crtemu->config.flicker );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_vignette" ), crtemu->config.vignette );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_distortion" ), crtemu->config.distortion );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_aspect_lock" ), crtemu->config.aspect_lock );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_hpos" ), crtemu->config.hpos );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_vpos" ), crtemu->config.vpos );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_hsize" ), crtemu->config.hsize );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_vsize" ), crtemu->config.vsize );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_contrast" ), crtemu->config.contrast );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_brightness" ), crtemu->config.brightness );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_saturation" ), crtemu->config.saturation );
-    crtemu->Uniform1f( crtemu->GetUniformLocation( crtemu->crt_shader, "cfg_degauss" ), crtemu->config.degauss );
 
     float color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
@@ -1234,9 +1689,16 @@ void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pix
     #endif
 
     crtemu->ActiveTexture( CRTEMU_GL_TEXTURE3 );
-    crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->frametexture );
-    crtemu->TexParameteri( CRTEMU_GL_TEXTURE_2D, CRTEMU_GL_TEXTURE_MIN_FILTER, CRTEMU_GL_LINEAR );
-    crtemu->TexParameteri( CRTEMU_GL_TEXTURE_2D, CRTEMU_GL_TEXTURE_MAG_FILTER, CRTEMU_GL_LINEAR );
+    if( crtemu->type == CRTEMU_TYPE_LITE ) {
+        crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->backbuffer );
+        crtemu->TexParameteri( CRTEMU_GL_TEXTURE_2D, CRTEMU_GL_TEXTURE_MIN_FILTER, CRTEMU_GL_NEAREST );
+        crtemu->TexParameteri( CRTEMU_GL_TEXTURE_2D, CRTEMU_GL_TEXTURE_MAG_FILTER, CRTEMU_GL_NEAREST );
+    } else {
+        crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, crtemu->frametexture );
+        crtemu->TexParameteri( CRTEMU_GL_TEXTURE_2D, CRTEMU_GL_TEXTURE_MIN_FILTER, CRTEMU_GL_LINEAR );
+        crtemu->TexParameteri( CRTEMU_GL_TEXTURE_2D, CRTEMU_GL_TEXTURE_MAG_FILTER, CRTEMU_GL_LINEAR );
+    }
+
     crtemu->TexParameteri( CRTEMU_GL_TEXTURE_2D, CRTEMU_GL_TEXTURE_WRAP_S, CRTEMU_GL_CLAMP_TO_BORDER );
     crtemu->TexParameteri( CRTEMU_GL_TEXTURE_2D, CRTEMU_GL_TEXTURE_WRAP_T, CRTEMU_GL_CLAMP_TO_BORDER );
     #ifndef CRTEMU_WEBGL
@@ -1250,76 +1712,161 @@ void crtemu_present( crtemu_t* crtemu, CRTEMU_U64 time_us, CRTEMU_U32 const* pix
     crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, 1 );
     crtemu->BindTexture( CRTEMU_GL_TEXTURE_2D, 2 );
     crtemu->BindFramebuffer( CRTEMU_GL_FRAMEBUFFER, 0 );
+}
+
+
+void crtemu_coordinates_window_to_bitmap( crtemu_t* crtemu, int width, int height, int* x, int* y ) {
+    switch( crtemu->type ) {
+        case CRTEMU_TYPE_TV: {
+            CRTEMU_GLint viewport[ 4 ];
+            crtemu->GetIntegerv( CRTEMU_GL_VIEWPORT, viewport );
+
+            int window_width = viewport[ 2 ] - viewport[ 0 ];
+            int window_height = viewport[ 3 ] - viewport[ 1 ];
+
+            int aspect_width = (int)( ( window_height * 4 ) / 3 );
+            int aspect_height= (int)( ( window_width * 3 ) / 4 );
+            int target_width, target_height;
+            if( aspect_height <= window_height ) {
+                target_width = window_width;
+                target_height = aspect_height;
+            } else {
+                target_width = aspect_width;
+                target_height = window_height;
+            }
+
+            float hscale = target_width / (float) width;
+            float vscale = target_height / (float) height;
+
+            float hborder = ( window_width - hscale * width ) / 2.0f;
+            float vborder = ( window_height - vscale * height ) / 2.0f;
+
+            float xp = ( ( *x - hborder ) / hscale ) / (float) width;
+            float yp = ( ( *y - vborder ) / vscale ) / (float) height;
+
+            /* TODO: Common params for shader and this */
+            float xc = ( xp - 0.5f ) * 2.0f;
+            float yc = ( yp - 0.5f ) * 2.0f;
+            xc *= 1.1f;
+            yc *= 1.1f;
+            //xc *= 1.0f + powf( ( fabsf( yc ) / 5.0f ), 2.0f);
+            //yc *= 1.0f + powf( ( fabsf( xc ) / 4.0f ), 2.0f);
+            float yt = ( yc >= 0.0f ? yc : -yc ) / 5.0f;
+            float xt = ( xc >= 0.0f ? xc : -xc ) / 4.0f;
+            xc *= 1.0f + ( yt * yt );
+            yc *= 1.0f + ( xt * xt );
+            xc = ( xc / 2.0f ) + 0.5f;
+            yc = ( yc / 2.0f ) + 0.5f;
+            xc = xc * 0.92f + 0.04f;
+            yc = yc * 0.92f + 0.04f;
+            xp = xc * 0.6f + xp * 0.4f;
+            yp = yc * 0.6f + yp * 0.4f;
+
+            xp = xp * ( 1.0f - 0.04f ) + 0.04f / 2.0f + 0.003f;
+            yp = yp * ( 1.0f - 0.04f ) + 0.04f / 2.0f - 0.001f;
+
+            xp = xp * 1.025f - 0.0125f;
+            yp = yp * 0.92f + 0.04f;
+
+            xp *= width;
+            yp *= height;
+
+            *x = (int) ( xp );
+            *y = (int) ( yp );
+        } break;
+        case CRTEMU_TYPE_PC: {
+            CRTEMU_GLint viewport[ 4 ];
+            crtemu->GetIntegerv( CRTEMU_GL_VIEWPORT, viewport );
+
+            int window_width = viewport[ 2 ] - viewport[ 0 ];
+            int window_height = viewport[ 3 ] - viewport[ 1 ];
+
+            int aspect_width = (int)( ( window_height * 4 ) / 3 );
+            int aspect_height= (int)( ( window_width * 3 ) / 4 );
+            int target_width, target_height;
+            if( aspect_height <= window_height ) {
+                target_width = window_width;
+                target_height = aspect_height;
+            } else {
+                target_width = aspect_width;
+                target_height = window_height;
+            }
+
+            float hscale = target_width / (float) width;
+            float vscale = target_height / (float) height;
+
+            float hborder = ( window_width - hscale * width ) / 2.0f;
+            float vborder = ( window_height - vscale * height ) / 2.0f;
+
+            float xp = ( ( *x - hborder ) / hscale ) / (float) width;
+            float yp = ( ( *y - vborder ) / vscale ) / (float) height;
+
+            /* TODO: Common params for shader and this */
+            float xc = ( xp - 0.5f ) * 2.0f;
+            float yc = ( yp - 0.5f ) * 2.0f;
+            xc *= 1.1f;
+            yc *= 1.1f;
+            //xc *= 1.0f + powf( ( fabsf( yc ) / 5.0f ), 2.0f);
+            //yc *= 1.0f + powf( ( fabsf( xc ) / 4.0f ), 2.0f);
+            float yt = ( yc >= 0.0f ? yc : -yc ) / 5.0f;
+            float xt = ( xc >= 0.0f ? xc : -xc ) / 4.0f;
+            xc *= 1.0f + ( yt * yt );
+            yc *= 1.0f + ( xt * xt );
+            xc = ( xc / 2.0f ) + 0.5f;
+            yc = ( yc / 2.0f ) + 0.5f;
+            xc = xc * 0.92f + 0.04f;
+            yc = yc * 0.92f + 0.04f;
+            xp = xc * 0.2f + xp * 0.8f;
+            yp = yc * 0.2f + yp * 0.8f;
+
+            xp = xp * ( 1.0f - 0.04f ) + 0.04f / 2.0f + 0.003f;
+            yp = yp * ( 1.0f - 0.04f ) + 0.04f / 2.0f - 0.001f;
+
+            xp = xp * 1.156f - ( 0.078f + 0.003f );
+            yp = yp * 1.156f - 0.078f;
+
+            xp *= width;
+            yp *= height;
+
+            *x = (int) ( xp );
+            *y = (int) ( yp );
+        } break;
+        case CRTEMU_TYPE_LITE: {
+            CRTEMU_GLint viewport[ 4 ];
+            crtemu->GetIntegerv( CRTEMU_GL_VIEWPORT, viewport );
+
+            int window_width = viewport[ 2 ] - viewport[ 0 ];
+            int window_height = viewport[ 3 ] - viewport[ 1 ];
+
+            int aspect_width = (int)( ( window_height * 4 ) / 3 );
+            int aspect_height= (int)( ( window_width * 3 ) / 4 );
+            int target_width, target_height;
+            if( aspect_height <= window_height ) {
+                target_width = window_width;
+                target_height = aspect_height;
+            } else {
+                target_width = aspect_width;
+                target_height = window_height;
+            }
+
+            float hscale = target_width / (float) width;
+            float vscale = target_height / (float) height;
+
+            float hborder = ( window_width - hscale * width ) / 2.0f;
+            float vborder = ( window_height - vscale * height ) / 2.0f;
+
+            float xp = ( ( *x - hborder ) / hscale ) / (float) width;
+            float yp = ( ( *y - vborder ) / vscale ) / (float) height;
+
+            xp *= width;
+            yp *= height;
+
+            *x = (int) ( xp );
+            *y = (int) ( yp );
+        } break;
     }
+}
 
-
-void crtemu_coordinates_window_to_bitmap( crtemu_t* crtemu, int width, int height, int* x, int* y )
-    {
-    CRTEMU_GLint viewport[ 4 ];
-    crtemu->GetIntegerv( CRTEMU_GL_VIEWPORT, viewport );
-
-    int window_width = viewport[ 2 ] - viewport[ 0 ];
-    int window_height = viewport[ 3 ] - viewport[ 1 ];
-
-    int aspect_width = (int)( ( window_height * 4 ) / 3 );
-    int aspect_height= (int)( ( window_width * 3 ) / 4 );
-    int target_width, target_height;
-    if( aspect_height <= window_height )
-        {
-        target_width = window_width;
-        target_height = aspect_height;
-        }
-    else
-        {
-        target_width = aspect_width;
-        target_height = window_height;
-        }
-
-    float hscale = target_width / (float) width;
-    float vscale = target_height / (float) height;
-
-    float hborder = ( window_width - hscale * width ) / 2.0f;
-    float vborder = ( window_height - vscale * height ) / 2.0f;
-
-    float xp = ( ( *x - hborder ) / hscale ) / (float) width;
-    float yp = ( ( *y - vborder ) / vscale ) / (float) height;
-
-    /* TODO: Common params for shader and this */
-    float xc = ( xp - 0.5f ) * 2.0f;
-    float yc = ( yp - 0.5f ) * 2.0f;
-    xc *= 1.1f;
-    yc *= 1.1f;
-    //xc *= 1.0f + powf( ( fabsf( yc ) / 5.0f ), 2.0f);
-    //yc *= 1.0f + powf( ( fabsf( xc ) / 4.0f ), 2.0f);
-    float yt = ( yc >= 0.0f ? yc : -yc ) / 5.0f;
-    float xt = ( xc >= 0.0f ? xc : -xc ) / 4.0f;
-    xc *= 1.0f + ( yt * yt );
-    yc *= 1.0f + ( xt * xt );
-    xc = ( xc / 2.0f ) + 0.5f;
-    yc = ( yc / 2.0f ) + 0.5f;
-    xc = xc * 0.92f + 0.04f;
-    yc = yc * 0.92f + 0.04f;
-    xp = xc * 0.6f + xp * 0.4f;
-    yp = yc * 0.6f + yp * 0.4f;
-
-    xp = xp * ( 1.0f - 0.04f ) + 0.04f / 2.0f + 0.003f;
-    yp = yp * ( 1.0f - 0.04f ) + 0.04f / 2.0f - 0.001f;
-
-    xp = xp * 1.025f - 0.0125f;
-    yp = yp * 0.92f + 0.04f;
-
-    xp *= width;
-    yp *= height;
-
-    *x = (int) ( xp );
-    *y = (int) ( yp );
-    }
-
-
-void crtemu_coordinates_bitmap_to_window( crtemu_t* crtemu, int width, int height, int* x, int* y )
-    {
-    (void) crtemu, (void) width, (void) height, (void) x, (void) y; // TODO: implement
-    }
 
 
 #endif /* CRTEMU_IMPLEMENTATION */

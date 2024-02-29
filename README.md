@@ -17,6 +17,7 @@ Single-file public domain libraries for C/C++ (dual licensed under MIT).
 More libs, work-in-progress, some are unfinished, some are complete but lacking documentation.
 
 * array.h - Dynamic array library for C/C++.
+* audiosys.h - Sound mixer library for C/C++.
 * buffer.h - Memory buffer with read/write operations, for C/C++.
 * crtemu.h - Cathode ray tube emulation shader for C/C++.
 * cstr.h - String interning and manipulation library for C/C++.
