@@ -6480,7 +6480,7 @@ void test_assetsys( void ) {
         // Save the test.zip file to the file system.
         ASSETSYS_FILE* fp = ASSETSYS_FOPEN( "test.zip", "wb" );
         TESTFW_EXPECTED(fp != NULL);
-        fwrite(test_assetsys_data, 1, test_assetsys_data_size, fp);
+        ASSETSYS_FWRITE(test_assetsys_data, 1, test_assetsys_data_size, fp);
         ASSETSYS_FCLOSE(fp);
 
         // Create the asset system
