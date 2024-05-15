@@ -399,8 +399,127 @@ path. If the path is invalid or index is out of range, `assetsys_subdir_path` re
 #define _CRT_NONSTDC_NO_DEPRECATE 
 #define _CRT_SECURE_NO_WARNINGS
 
+#ifndef ASSETSYS_FILE
+  #include <stdio.h>
+  #define ASSETSYS_FILE FILE
+#endif
+
+#ifndef ASSETSYS_FOPEN
+  #include <stdio.h> // fopen
+  #define ASSETSYS_FOPEN( f, m ) fopen( f, m )
+#endif
+
+#ifndef ASSETSYS_FCLOSE
+  #include <stdio.h> // fclose
+  #define ASSETSYS_FCLOSE( f ) fclose( f )
+#endif
+
+#ifndef ASSETSYS_FREAD
+  #include <stdio.h> // fread
+  #define ASSETSYS_FREAD( b, i, c, s ) fread( b, (i), (c), s )
+#endif
+
+#ifndef ASSETSYS_FWRITE
+  #include <stdio.h> // fwrite
+  #define ASSETSYS_FWRITE( b, i, c, s ) fwrite( b, (i), (c), s )
+#endif
+
+#ifndef ASSETSYS_FTELL
+  #include <stdio.h> // ftell
+  #define ASSETSYS_FTELL( f ) ftell( f )
+#endif
+
+#ifndef ASSETSYS_FSEEK
+  #include <stdio.h> // fseek
+  #define ASSETSYS_FSEEK( s, o, w ) fseek( s, (o), (w) )
+#endif
+
+#ifndef ASSETSYS_FILE_STAT
+  #if defined( _MSC_VER ) && _MSC_VER >= 1400
+    #include <sys/stat.h> // _stat
+    #define ASSETSYS_FILE_STAT __stat64
+  #else
+    #include <sys/stat.h> // stat
+    #define ASSETSYS_FILE_STAT stat
+  #endif
+#endif
+
+#ifndef ASSETSYS_FILE_STAT_STRUCT
+  #if defined( _MSC_VER ) && _MSC_VER >= 1400
+    #include <sys/stat.h> // _stat64
+    #define ASSETSYS_FILE_STAT_STRUCT _stat64
+  #else
+    #include <sys/stat.h> // stat
+    #define ASSETSYS_FILE_STAT_STRUCT stat
+  #endif
+#endif
+
+#ifndef ASSETSYS_SEEK_END
+  #include <stdio.h> // SEEK_END
+  #define ASSETSYS_SEEK_END SEEK_END
+#endif
+
+#ifndef ASSETSYS_SEEK_SET
+  #include <stdio.h> // SEEK_SET
+  #define ASSETSYS_SEEK_SET SEEK_SET
+#endif
+
+#ifndef ASSETSYS_FFLUSH
+  #include <stdio.h> // fflush
+  #define ASSETSYS_FFLUSH( f ) fflush( f )
+#endif
+
+#ifndef ASSETSYS_FREOPEN
+  #include <stdio.h> // freopen
+  #define ASSETSYS_FREOPEN( f, m, s ) freopen( f, m, s )
+#endif
+
+#ifndef ASSETSYS_DELETE_FILE
+  #include <stdio.h> // remove
+  #define ASSETSYS_DELETE_FILE( f ) remove( f )
+#endif
+
 #ifdef ASSETSYS_NO_MINIZ
-    #define MINIZ_HEADER_FILE_ONLY
+  #define MINIZ_HEADER_FILE_ONLY
+#else
+  #define MINIZ_NO_TIME
+  #define MINIZ_NO_MALLOC
+  #ifndef MZ_FILE
+    #define MZ_FILE ASSETSYS_FILE
+  #endif
+  #ifndef MZ_FOPEN
+    #define MZ_FOPEN(f, m) ASSETSYS_FOPEN(f, m)
+  #endif
+  #ifndef MZ_FCLOSE
+    #define MZ_FCLOSE ASSETSYS_FCLOSE
+  #endif
+  #ifndef MZ_FREAD
+    #define MZ_FREAD ASSETSYS_FREAD
+  #endif
+  #ifndef MZ_FWRITE
+    #define MZ_FWRITE ASSETSYS_FWRITE
+  #endif
+  #ifndef MZ_FTELL64
+    #define MZ_FTELL64 ASSETSYS_FTELL
+  #endif
+  #ifndef MZ_FSEEK64
+    #define MZ_FSEEK64 ASSETSYS_FSEEK
+  #endif
+  #ifndef MZ_FILE_STAT_STRUCT
+    #define MZ_FILE_STAT_STRUCT ASSETSYS_FILE_STAT_STRUCT
+  #endif
+  #ifndef MZ_FILE_STAT
+    #define MZ_FILE_STAT ASSETSYS_FILE_STAT
+  #endif
+  #ifndef MZ_FFLUSH
+    #define MZ_FFLUSH(val) ASSETSYS_FFLUSH(val)
+  #endif
+  #ifndef MZ_FREOPEN
+    #define MZ_FREOPEN(f, m, s) ASSETSYS_FREOPEN(f, m, s)
+  #endif
+  #ifndef MZ_DELETE_FILE
+    #define MZ_DELETE_FILE ASSETSYS_DELETE_FILE
+  #endif
 #endif /* ASSETSYS_NO_MINIZ */
 
 #ifdef ASSETSYS_ASSERT
@@ -3266,124 +3385,6 @@ void *tdefl_write_image_to_png_file_in_memory(const void *pImage, int w, int h, 
 
 #ifndef MINIZ_NO_ARCHIVE_APIS
 
-#ifdef MINIZ_NO_STDIO
-  #define MZ_FILE void *
-#else
-  #include <stdio.h>
-  #include <sys/stat.h>
-
-  #if ( defined(_MSC_VER) && _MSC_VER >= 1400 ) || defined(__MINGW64__)
-    static FILE *mz_fopen(const char *pFilename, const char *pMode)
-    {
-      FILE* pFile = NULL;
-      fopen_s(&pFile, pFilename, pMode);
-      return pFile;
-    }
-    static FILE *mz_freopen(const char *pPath, const char *pMode, FILE *pStream)
-    {
-      FILE* pFile = NULL;
-      if (freopen_s(&pFile, pPath, pMode, pStream))
-        return NULL;
-      return pFile;
-    }
-    #ifndef MINIZ_NO_TIME
-      #include <sys/utime.h>
-    #endif
-    #define MZ_FILE FILE
-    #define MZ_FOPEN mz_fopen
-    #define MZ_FCLOSE fclose
-    #define MZ_FREAD fread
-    #define MZ_FWRITE fwrite
-    #define MZ_FTELL64 _ftelli64
-    #define MZ_FSEEK64 _fseeki64
-    #define MZ_FILE_STAT_STRUCT _stat
-    #define MZ_FILE_STAT _stat
-    #define MZ_FFLUSH fflush
-    #define MZ_FREOPEN mz_freopen
-    #define MZ_DELETE_FILE remove
-  #elif defined(_MSC_VER) && _MSC_VER < 1400 
-    #ifndef MINIZ_NO_TIME
-      #include <sys/utime.h>
-    #endif
-    #define MZ_FILE FILE
-    #define MZ_FOPEN(f, m) fopen(f, m)
-    #define MZ_FCLOSE fclose
-    #define MZ_FREAD fread
-    #define MZ_FWRITE fwrite
-    #define MZ_FTELL64 ftell
-    #define MZ_FSEEK64 fseek
-    #define MZ_FILE_STAT_STRUCT _stat
-    #define MZ_FILE_STAT _stat
-    #define MZ_FFLUSH fflush
-    #define MZ_FREOPEN(f, m, s) freopen(f, m, s)
-    #define MZ_DELETE_FILE remove
-  #elif defined(__MINGW32__)
-    #ifndef MINIZ_NO_TIME
-      #include <sys/utime.h>
-    #endif
-    #define MZ_FILE FILE
-    #define MZ_FOPEN(f, m) fopen(f, m)
-    #define MZ_FCLOSE fclose
-    #define MZ_FREAD fread
-    #define MZ_FWRITE fwrite
-    #define MZ_FTELL64 ftello64
-    #define MZ_FSEEK64 fseeko64
-    #define MZ_FILE_STAT_STRUCT _stat
-    #define MZ_FILE_STAT _stat
-    #define MZ_FFLUSH fflush
-    #define MZ_FREOPEN(f, m, s) freopen(f, m, s)
-    #define MZ_DELETE_FILE remove
-  #elif defined(__TINYC__)
-    #ifndef MINIZ_NO_TIME
-      #include <sys/utime.h>
-    #endif
-    #define MZ_FILE FILE
-    #define MZ_FOPEN(f, m) fopen(f, m)
-    #define MZ_FCLOSE fclose
-    #define MZ_FREAD fread
-    #define MZ_FWRITE fwrite
-    #define MZ_FTELL64 ftell
-    #define MZ_FSEEK64 fseek
-    #define MZ_FILE_STAT_STRUCT stat
-    #define MZ_FILE_STAT stat
-    #define MZ_FFLUSH fflush
-    #define MZ_FREOPEN(f, m, s) freopen(f, m, s)
-    #define MZ_DELETE_FILE remove
-  #elif defined(__GNUC__) && _LARGEFILE64_SOURCE
-    #ifndef MINIZ_NO_TIME
-      #include <utime.h>
-    #endif
-    #define MZ_FILE FILE
-    #define MZ_FOPEN(f, m) fopen64(f, m)
-    #define MZ_FCLOSE fclose
-    #define MZ_FREAD fread
-    #define MZ_FWRITE fwrite
-    #define MZ_FTELL64 ftello64
-    #define MZ_FSEEK64 fseeko64
-    #define MZ_FILE_STAT_STRUCT stat64
-    #define MZ_FILE_STAT stat64
-    #define MZ_FFLUSH fflush
-    #define MZ_FREOPEN(p, m, s) freopen64(p, m, s)
-    #define MZ_DELETE_FILE remove
-  #else
-    #ifndef MINIZ_NO_TIME
-      #include <utime.h>
-    #endif
-    #define MZ_FILE FILE
-    #define MZ_FOPEN(f, m) fopen(f, m)
-    #define MZ_FCLOSE fclose
-    #define MZ_FREAD fread
-    #define MZ_FWRITE fwrite
-    #define MZ_FTELL64 ftello
-    #define MZ_FSEEK64 fseeko
-    #define MZ_FILE_STAT_STRUCT stat
-    #define MZ_FILE_STAT stat
-    #define MZ_FFLUSH fflush
-    #define MZ_FREOPEN(f, m, s) freopen(f, m, s)
-    #define MZ_DELETE_FILE remove
-  #endif // #ifdef _MSC_VER
-#endif // #ifdef MINIZ_NO_STDIO
-
 #define MZ_TOLOWER(c) ((((c) >= 'A') && ((c) <= 'Z')) ? ((c) - 'A' + 'a') : (c))
 
 // Various ZIP archive enums. To completely avoid cross platform compiler alignment and platform endian issues, miniz.c doesn't use structs for any of this stuff.
@@ -5365,8 +5366,6 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 
 #define _CRT_NONSTDC_NO_DEPRECATE 
 #define _CRT_SECURE_NO_WARNINGS
-#include <sys/stat.h>
-#include <stdio.h> // FILE, fopen, fseet, SEEK_END, SEEK_SET, ftell, fread
 
 #include "strpool.h"
 
@@ -6211,24 +6210,23 @@ assetsys_error_t assetsys_file_load( assetsys_t* sys, assetsys_file_t f, int* si
         }
     else
         {
-        if( size ) *size = file->size;
         strcpy( sys->temp, assetsys_internal_get_string( sys, mount->path ) );
         strcat( sys->temp, *sys->temp == '\0' ? "" : "/" );
         strcat( sys->temp, assetsys_internal_get_string( sys, 
             sys->collated[ file->collated_index ].path ) + 
             ( strcmp( assetsys_internal_get_string( sys, mount->mounted_as ), "/" ) == 0 ? 0 : mount->mount_len + 1 ) );
-        FILE* fp = fopen( sys->temp, "rb" );
+        ASSETSYS_FILE* fp = ASSETSYS_FOPEN( sys->temp, "rb" );
         if( !fp ) return ASSETSYS_ERROR_FAILED_TO_READ_FILE;
         
-        fseek( fp, 0, SEEK_END );
-        int file_size = (int) ftell( fp );
-        fseek( fp, 0, SEEK_SET );
+        ASSETSYS_FSEEK( fp, 0, ASSETSYS_SEEK_END );
+        int file_size = (int) ASSETSYS_FTELL( fp );
+        ASSETSYS_FSEEK( fp, 0, ASSETSYS_SEEK_SET );
         if( size ) *size = file_size;
 
-        if( file_size > capacity ) { fclose( fp ); return ASSETSYS_ERROR_BUFFER_TOO_SMALL; }
+        if( file_size > capacity ) { ASSETSYS_FCLOSE( fp ); return ASSETSYS_ERROR_BUFFER_TOO_SMALL; }
 
-        int size_read = (int) fread( buffer, 1, (size_t) file_size, fp );
-        fclose( fp );
+        int size_read = (int) ASSETSYS_FREAD( buffer, 1, (size_t) file_size, fp );
+        ASSETSYS_FCLOSE( fp );
         if( size_read != file_size ) return ASSETSYS_ERROR_FAILED_TO_READ_FILE;
 
         return ASSETSYS_SUCCESS;
@@ -6396,65 +6394,64 @@ static char* assetsys_internal_dirname( char const* path )
 
 #include "testfw.h"
 
-
 void test_assetsys( void ) {
+    // Zip file with a test.txt file containing "Hello, World!"
+    const unsigned char test_assetsys_data[]  = {
+        0x50, 0x4b, 0x03, 0x04, 0x0a, 0x03, 0x00, 0x00, 0x00, 0x00, 0xfc, 0x9e, 0x23, 0x57, 0x84, 0x9e, 
+        0xe8, 0xb4, 0x0e, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x74, 0x65, 
+        0x73, 0x74, 0x2e, 0x74, 0x78, 0x74, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0x57, 0x6f, 0x72, 
+        0x6c, 0x64, 0x21, 0x0a, 0x50, 0x4b, 0x01, 0x02, 0x3f, 0x03, 0x0a, 0x03, 0x00, 0x00, 0x00, 0x00, 
+        0xfc, 0x9e, 0x23, 0x57, 0x84, 0x9e, 0xe8, 0xb4, 0x0e, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 
+        0x08, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x80, 0xb4, 0x81, 0x00, 0x00, 
+        0x00, 0x00, 0x74, 0x65, 0x73, 0x74, 0x2e, 0x74, 0x78, 0x74, 0x0a, 0x00, 0x20, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x01, 0x00, 0x18, 0x00, 0x00, 0x0e, 0xf2, 0x2d, 0xc2, 0xde, 0xd9, 0x01, 0x00, 0x0e, 
+        0xf2, 0x2d, 0xc2, 0xde, 0xd9, 0x01, 0x00, 0x0e, 0xf2, 0x2d, 0xc2, 0xde, 0xd9, 0x01, 0x50, 0x4b, 
+        0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x5a, 0x00, 0x00, 0x00, 0x34, 0x00, 
+        0x00, 0x00, 0x00, 0x00
+    };
+    const int test_assetsys_data_size = 164;
+
     TESTFW_TEST_BEGIN( "Test mounting path and loading file" );
-
-    // Create the asset system
-    assetsys_t* assetsys = assetsys_create( 0 );
-    TESTFW_EXPECTED( assetsys != NULL );
-
-    // Mount current working folder as a virtual "/data" path
-    TESTFW_EXPECTED( assetsys_mount( assetsys, ".", "/data" ) == ASSETSYS_SUCCESS );
-
-    // Load a file
-    assetsys_file_t file;
-    TESTFW_EXPECTED(  assetsys_file( assetsys, "/data/README.md", &file ) == ASSETSYS_SUCCESS );
-
-    // Find the size of the file
-    int size = assetsys_file_size( assetsys, file );
-    TESTFW_EXPECTED( size > 30 );
-
-    // Load the file
-    char* content = (char*) malloc( size + 1 ); // extra space for '\0'
-    int loaded_size = 0;
-    TESTFW_EXPECTED( assetsys_file_load( assetsys, file, &loaded_size, content, size ) == ASSETSYS_SUCCESS );
-    content[ size ] = '\0'; // zero terminate the text file
-
-    // Clean up
-    free( content );
-    assetsys_destroy( assetsys );
-
-    TESTFW_TEST_END();
-
-    TESTFW_TEST_BEGIN( "Test mounting data and loading file" );
         {
-        // Zip file with a test.txt file containing "Hello, World!"
-        const unsigned char data[]  = {
-            0x50, 0x4b, 0x03, 0x04, 0x0a, 0x03, 0x00, 0x00, 0x00, 0x00, 0xfc, 0x9e, 0x23, 0x57, 0x84, 0x9e, 
-            0xe8, 0xb4, 0x0e, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x74, 0x65, 
-            0x73, 0x74, 0x2e, 0x74, 0x78, 0x74, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0x57, 0x6f, 0x72, 
-            0x6c, 0x64, 0x21, 0x0a, 0x50, 0x4b, 0x01, 0x02, 0x3f, 0x03, 0x0a, 0x03, 0x00, 0x00, 0x00, 0x00, 
-            0xfc, 0x9e, 0x23, 0x57, 0x84, 0x9e, 0xe8, 0xb4, 0x0e, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 
-            0x08, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x80, 0xb4, 0x81, 0x00, 0x00, 
-            0x00, 0x00, 0x74, 0x65, 0x73, 0x74, 0x2e, 0x74, 0x78, 0x74, 0x0a, 0x00, 0x20, 0x00, 0x00, 0x00, 
-            0x00, 0x00, 0x01, 0x00, 0x18, 0x00, 0x00, 0x0e, 0xf2, 0x2d, 0xc2, 0xde, 0xd9, 0x01, 0x00, 0x0e, 
-            0xf2, 0x2d, 0xc2, 0xde, 0xd9, 0x01, 0x00, 0x0e, 0xf2, 0x2d, 0xc2, 0xde, 0xd9, 0x01, 0x50, 0x4b, 
-            0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x5a, 0x00, 0x00, 0x00, 0x34, 0x00, 
-            0x00, 0x00, 0x00, 0x00
-        };
-        const int data_size = 164;
-
         // Create the asset system
         assetsys_t* assetsys = assetsys_create( 0 );
         TESTFW_EXPECTED( assetsys != NULL );
 
         // Mount current working folder as a virtual "/data" path
-        TESTFW_EXPECTED( assetsys_mount_from_memory( assetsys, data, data_size, "/data" ) == ASSETSYS_SUCCESS );
+        TESTFW_EXPECTED( assetsys_mount( assetsys, ".", "/data" ) == ASSETSYS_SUCCESS );
 
         // Load a file
         assetsys_file_t file;
-        TESTFW_EXPECTED(  assetsys_file( assetsys, "/data/test.txt", &file ) == ASSETSYS_SUCCESS );
+        TESTFW_EXPECTED( assetsys_file( assetsys, "/data/README.md", &file ) == ASSETSYS_SUCCESS );
+
+        // Find the size of the file
+        int size = assetsys_file_size( assetsys, file );
+        TESTFW_EXPECTED( size > 30 );
+
+        // Load the file
+        char* content = (char*) malloc( size + 1 ); // extra space for '\0'
+        int loaded_size = 0;
+        TESTFW_EXPECTED( assetsys_file_load( assetsys, file, &loaded_size, content, size ) == ASSETSYS_SUCCESS );
+        content[ size ] = '\0'; // zero terminate the text file
+
+        // Clean up
+        free( content );
+        assetsys_destroy( assetsys );
+        }
+    TESTFW_TEST_END();
+
+    TESTFW_TEST_BEGIN( "Test mounting data and loading file" );
+        {
+        // Create the asset system
+        assetsys_t* assetsys = assetsys_create( 0 );
+        TESTFW_EXPECTED( assetsys != NULL );
+
+        // Mount current working folder as a virtual "/data" path
+        TESTFW_EXPECTED( assetsys_mount_from_memory( assetsys, test_assetsys_data, test_assetsys_data_size, "/data" ) == ASSETSYS_SUCCESS );
+
+        // Load a file
+        assetsys_file_t file;
+        TESTFW_EXPECTED( assetsys_file( assetsys, "/data/test.txt", &file ) == ASSETSYS_SUCCESS );
 
         // Find the size of the file
         int size = assetsys_file_size( assetsys, file );
@@ -6466,6 +6463,45 @@ void test_assetsys( void ) {
         TESTFW_EXPECTED( assetsys_file_load( assetsys, file, &loaded_size, content, size ) == ASSETSYS_SUCCESS );
         content[ size ] = '\0'; // zero terminate the text file
 
+        TESTFW_EXPECTED( content[0] == 'H' );
+        TESTFW_EXPECTED( content[1] == 'e' );
+        TESTFW_EXPECTED( content[2] == 'l' );
+        TESTFW_EXPECTED( content[3] == 'l' );
+        TESTFW_EXPECTED( content[4] == 'o' );
+
+        // Clean up
+        free( content );
+        assetsys_destroy( assetsys );
+        }
+    TESTFW_TEST_END();
+
+    TESTFW_TEST_BEGIN( "Test mounting zip file directly" );
+        {
+        // Save the test.zip file to the file system.
+        ASSETSYS_FILE* fp = ASSETSYS_FOPEN( "test.zip", "wb" );
+        TESTFW_EXPECTED(fp != NULL);
+        ASSETSYS_FWRITE(test_assetsys_data, 1, test_assetsys_data_size, fp);
+        ASSETSYS_FCLOSE(fp);
+
+        // Create the asset system
+        assetsys_t* assetsys = assetsys_create( 0 );
+        TESTFW_EXPECTED( assetsys != NULL );
+
+        // Mount the test.zip file as a virtual "/datafile" path
+        TESTFW_EXPECTED( assetsys_mount( assetsys, "test.zip", "/datafile" ) == ASSETSYS_SUCCESS );
+
+        // Load a file
+        assetsys_file_t file;
+        TESTFW_EXPECTED( assetsys_file( assetsys, "/datafile/test.txt", &file ) == ASSETSYS_SUCCESS );
+
+        // Find the size of the file
+        int size = assetsys_file_size( assetsys, file);
+        TESTFW_EXPECTED( size > 5 );
+
+        // Load the file
+        char* content = (char*) malloc( size + 1 ); // extra space for '\0'
+        int loaded_size = 0;
+        TESTFW_EXPECTED( assetsys_file_load( assetsys, file, &loaded_size, content, size ) == ASSETSYS_SUCCESS );
         TESTFW_EXPECTED( content[0] == 'H' );
         TESTFW_EXPECTED( content[1] == 'e' );
         TESTFW_EXPECTED( content[2] == 'l' );
