@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-app.h - v0.5 - Small cross-platform base framework for graphical apps.
+app.h - v0.6 - Small cross-platform base framework for graphical apps.
 
 Do this:
     #define APP_IMPLEMENTATION
@@ -26,8 +26,10 @@ before you include this file in *one* C/C++ file to create the implementation.
 
 
 typedef struct app_t app_t;
+int app_t_size( void );
 
-int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx, void* fatalctx );
+int app_init( app_t*, void* logctx, void* fatalctx );
+void app_term( app_t* );
 
 typedef enum app_state_t { APP_STATE_EXIT_REQUESTED, APP_STATE_NORMAL, } app_state_t;
 app_state_t app_yield( app_t* app );
@@ -163,13 +165,20 @@ Here's a basic sample program which starts a windowed app and plots random pixel
     #include <stdlib.h> // for rand and __argc/__argv
     #include <string.h> // for memset
 
-    int app_proc( app_t* app, void* user_data ) {
+    int main( int argc, char** argv ) {
+        (void) argc, argv;
+
+        app_t app = {0};
+        if( app_init( &app, NULL, NULL ) ) {
+            return EXIT_FAILURE;
+        }
+
         APP_U32 canvas[ 320 * 200 ]; // a place for us to draw stuff
         memset( canvas, 0xC0, sizeof( canvas ) ); // clear to grey
-        app_screenmode( app, APP_SCREENMODE_WINDOW );
+        app_screenmode( &app, APP_SCREENMODE_WINDOW );
 
         // keep running until the user close the window
-        while( app_yield( app ) != APP_STATE_EXIT_REQUESTED ) {
+        while( app_yield( &app ) != APP_STATE_EXIT_REQUESTED ) {
             // plot a random pixel on the canvas
             int x = rand() % 320;
             int y = rand() % 200;
@@ -177,14 +186,9 @@ Here's a basic sample program which starts a windowed app and plots random pixel
             canvas[ x + y * 320 ] = color;
 
             // display the canvas
-            app_present( app, canvas, 320, 200, 0xffffff, 0x000000 );
+            app_present( &app, canvas, 320, 200, 0xffffff, 0x000000 );
         }
-        return 0;
-    }
-
-    int main( int argc, char** argv ) {
-        (void) argc, argv;
-        return app_run( app_proc, NULL, NULL, NULL, NULL );
+        return EXIT_SUCCESS;
     }
 
     // pass-through so the program will build with either /SUBSYSTEM:WINDOWS or /SUBSYSTEN:CONSOLE
@@ -231,28 +235,6 @@ The rest of the customizations only affect the implementation, so will only need
 have the #define APP_IMPLEMENTATION.
 
 
-#### Custom memory allocators
-
-Even though app.h attempts to minimize the memory use and number of allocations, it still needs to make *some* use of
-dynamic allocation by calling `malloc`. Programs might want to keep track of allocations done, or use custom defined
-pools to allocate memory from. app.h allows for specifying custom memory allocation functions for `malloc` and `free`.
-This is done with the following code:
-
-    #define APP_IMPLEMENTATION
-    #define APP_MALLOC( ctx, size ) ( my_custom_malloc( ctx, size ) )
-    #define APP_FREE( ctx, ptr ) ( my_custom_free( ctx, ptr ) )
-    #include "app.h"
-
-where `my_custom_malloc` and `my_custom_free` are your own memory allocation/deallocation functions. The `ctx` parameter
-is an optional parameter of type `void*`. When `app_run` is called, you can pass in a `memctx` parameter, which can be a
-pointer to anything you like, and which will be passed through as the `ctx` parameter to every APP_MALLOC/APP_FREE call.
-For example, if you are doing memory tracking, you can pass a pointer to your tracking data as `memctx`, and in your
-custom allocation/deallocation function, you can cast the `ctx` param back to the right type, and access the tracking
-data.
-
-If no custom allocator is defined, app.h will default to `malloc` and `free` from the C runtime library.
-
-
 #### Custom logging function
 
 There's a bunch of things being logged when app.h runs. It will log an informational entry with the date and time for
@@ -267,7 +249,7 @@ through defines like this:
 
 where `my_log_func` is your own logging function. Just like for the memory allocators, the `ctx` parameter is optional,
 and is just a `void*` value which is passed through. But in the case of logging, it will be passed through as the value
-off the `logctx` parameter passed into `app_run`. The `level` parameter specifies the severity level of the logging,
+off the `logctx` parameter passed into `app_init`. The `level` parameter specifies the severity level of the logging,
 and can be used to direct different types of messages to different logging systems, or filter out messages of certain
 severity level, e.g. supressing informational messages.
 
@@ -285,29 +267,34 @@ It is possible to change this behaviour using the following define:
     #include "app.h"
 
 where `my_custom_fatal_error_func` is your own error reporting function. The `ctx` parameter fills the same purpose as
-for the allocator and logging functions, but here it is the `fatalctx` parameter to `app_run` which is passed through.
+for the allocator and logging functions, but here it is the `fatalctx` parameter to `app_init` which is passed through.
 
 
-app_run
--------
+app_init
+--------
 
-    int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx, void* fatalctx )
+    int app_init( app_t*, void* logctx, void* fatalctx );
 
-Creates a new app instance, calls the given app_proc and waits for it to return. Then it destroys the app instance.
+When app_init is called, it will perform all the initialization needed by app.h for a given `app_t*` instance, returning `EXIT_SUCCESS` if it was initialized and `EXIT_FAILURE` otherwise.
 
-* app_proc - function pointer to the user defined starting point of the app. The parameters to that function are:
-    app_t* a pointer to the app instance. This is an opaque type, and it is passed to all other functions in the API.
-    void* pointer to the user defined data that was passed as the `user_data` parameter to `app_run`.
-* user_data - pointer to user defined data which will be passed through to app_proc. May be NULL.
-* memctx - pointer to user defined data which will be passed through to custom APP_MALLOC/APP_FREE calls. May be NULL.
 * logctx - pointer to user defined data to be passed through to custom APP_LOG calls. May be NULL.
 * fatalctx - pointer to user defined data to be passed through to custom APP_FATAL_ERROR calls. May be NULL.
 
-When app_run is called, it will perform all the initialization needed by app.h, and create an `app_t*` instance. It will
-then call the user-specified `app_proc`, and wait for it to return. The `app_t*` instance will be passed to `app_proc`,
-and can be used to call other functions in the API. When returning from `app_proc`, a return value is specified, and
-`app_run` will perform termination and cleanup, and destroy the `app_t*` instance, and then return the same value it got
-from the `app_proc`. After `app_run` returns, the `app_t*` value is no longer valid for use in any API calls.
+
+app_t_size
+----------
+
+    int app_t_size( );
+
+Returns the size of `app_t` to allow for dynamic allocation of it.
+
+
+app_term
+--------
+
+    void app_term( app_t* );
+
+Terminates the app instance. After `app_term` returns, the parameter `app_t*` value is no longer valid for use in any API calls.
 
 
 app_yield
@@ -1144,7 +1131,9 @@ static void app_internal_opengl_interpolation( struct app_internal_opengl_t* gl,
 
 
 struct app_t { void* dummy; };
-int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx, void* fatalctx ) { app_t app; return app_proc( &app, user_data ); }
+int app_t_size( ) { return sizeof( app_t ); }
+int app_init( app_t*, void* logctx, void* fatalctx ) { return EXIT_SUCCESS; }
+void app_term( app_t* ) { }
 app_state_t app_yield( app_t* app ) { return APP_STATE_NORMAL; }
 void app_cancel_exit( app_t* app ) { }
 void app_title( app_t* app, char const* title ) { }
@@ -1225,17 +1214,6 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
 #pragma warning( disable: 4668 ) // 'symbol' is not defined as a preprocessor macro, replacing with '0' for 'directives'
 #include <math.h>
 #pragma warning( pop )
-
-#ifndef APP_MALLOC
-    #include <stdlib.h>
-    #if defined(__cplusplus)
-        #define APP_MALLOC( ctx, size ) ( ::malloc( size ) )
-        #define APP_FREE( ctx, ptr ) ( ::free( ptr ) )
-    #else
-        #define APP_MALLOC( ctx, size ) ( malloc( size ) )
-        #define APP_FREE( ctx, ptr ) ( free( ptr ) )
-    #endif
-#endif
 
 #ifndef APP_LOG
     #if defined(__cplusplus)
@@ -1442,7 +1420,6 @@ struct IDirectSoundNotifyVtbl
 
 struct app_t
     {
-    void* memctx;
     void* logctx;
     void* fatalctx;
     app_interpolation_t interpolation;
@@ -2048,15 +2025,11 @@ static void app_internal_app_default_cursor( app_t* app )
 #pragma warning( push )
 #pragma warning( disable: 4533 ) // initialization of 'wc' is skipped by 'goto init_failed'
 
-int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx, void* fatalctx )
-    {
-    int result = 0xff;
-    //SetProcessDPIAware();
+int app_t_size( ) { return sizeof( app_t ); }
 
-    // Init app instance
-    app_t* app = (app_t*) APP_MALLOC( memctx, sizeof( app_t ) );
-    memset( app, 0, sizeof( *app ) );
-    app->memctx = memctx;
+int app_init( app_t* app, void* logctx, void* fatalctx )
+    {
+    //SetProcessDPIAware();
     app->logctx = logctx;
     app->fatalctx = fatalctx;
     app->interpolation = APP_INTERPOLATION_LINEAR;
@@ -2389,9 +2362,17 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
 
     if( !app_internal_tablet_init( app ) ) app_log( app, APP_LOG_LEVEL_WARNING, "WinTab initialization failed - tablet not available" );
 
-    result = app_proc( app, user_data );
+    return EXIT_SUCCESS;
 
 init_failed:
+    app_term( app );
+    return EXIT_FAILURE;
+    }
+
+void app_term( app_t* app )
+    {
+    if ( !app ) { return; }
+
     if( !app_internal_tablet_term( app ) ) app_log( app, APP_LOG_LEVEL_WARNING, "WinTab termination failed" );
     if( app->sound_thread_handle != INVALID_HANDLE_VALUE )
         {
@@ -2424,9 +2405,6 @@ init_failed:
     sprintf( msg, "Application terminated %02d:%02d:%02d %04d-%02d-%02d.",
         end->tm_hour, end->tm_min, end->tm_sec, end->tm_year + 1900, end->tm_mon + 1, end->tm_mday );
     app_log( app, APP_LOG_LEVEL_INFO, msg );
-
-    APP_FREE( memctx, app );
-    return result;
     }
 
 #pragma warning( pop )
@@ -3322,19 +3300,13 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
 
 #elif defined( APP_SDL )
 
-#ifndef APP_MALLOC
-    #include <stdlib.h>
-    #if defined(__cplusplus)
-        #define APP_MALLOC( ctx, size ) ( ::malloc( size ) )
-        #define APP_FREE( ctx, ptr ) ( ::free( ptr ) )
-    #else
-        #define APP_MALLOC( ctx, size ) ( malloc( size ) )
-        #define APP_FREE( ctx, ptr ) ( free( ptr ) )
-    #endif
-#endif
-
 #include <string.h>
 #include <stdio.h>
+
+#ifdef __TINYC__
+// TCC can't handle GCC's intrinsic syntax. Disable it.
+#define SDL_DISABLE_IMMINTRIN_H
+#endif
 
 #include "SDL.h"
 
@@ -3345,7 +3317,6 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
 
 struct app_t
     {
-    void* memctx;
     void* logctx;
     void* fatalctx;
     struct app_internal_opengl_t gl;
@@ -3372,17 +3343,15 @@ struct app_t
     };
 
 
-int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx, void* fatalctx )
+int app_t_size( ) { return sizeof( app_t ); }
+
+int app_init( app_t* app, void* logctx, void* fatalctx )
     {
-    app_t* app = (app_t*) APP_MALLOC( memctx, sizeof( app_t ) );
-    memset( app, 0, (int)sizeof( app_t ) );
-    app->memctx = memctx;
     app->logctx = logctx;
     app->fatalctx = fatalctx;
     app->interpolation = APP_INTERPOLATION_LINEAR;
     app->screenmode = APP_SCREENMODE_FULLSCREEN;
 
-    int result = 0xff;
     int display_count;
     int glres;
 
@@ -3469,9 +3438,17 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
         goto init_failed;
         }
 
-    result = app_proc( app, user_data );
+    return EXIT_SUCCESS;
 
 init_failed:
+    app_term( app );
+    return EXIT_FAILURE;
+    }
+
+void app_term( app_t* app )
+    {
+    if ( !app ) { return; }
+
     if( app->sound_device )
         {
         SDL_PauseAudioDevice( app->sound_device, 1 );
@@ -3489,9 +3466,6 @@ init_failed:
 
     //Quit SDL subsystems
     SDL_Quit();
-
-    APP_FREE( memctx, app );
-    return result;
     }
 
 
@@ -4057,17 +4031,6 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
 
 #elif defined( APP_WASM )
 
-#ifndef APP_MALLOC
-    #include <stdlib.h>
-    #if defined(__cplusplus)
-        #define APP_MALLOC( ctx, size ) ( ::malloc( size ) )
-        #define APP_FREE( ctx, ptr ) ( ::free( ptr ) )
-    #else
-        #define APP_MALLOC( ctx, size ) ( malloc( size ) )
-        #define APP_FREE( ctx, ptr ) ( free( ptr ) )
-    #endif
-#endif
-
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -4083,7 +4046,6 @@ WAJIC(void, app_js_print, (const char* msg),
 
 struct app_t
     {
-    void* memctx;
     void* logctx;
     void* fatalctx;
     struct app_internal_opengl_t gl;
@@ -4093,7 +4055,7 @@ struct app_t
     void (*sound_callback)( APP_S16* sample_pairs, int sample_pairs_count, void* user_data );
     void* sound_user_data;
     int sound_buffer_size;
-    APP_S16* sound_buffer;
+    APP_S16 sound_buffer[ 2048 * 2 ];
     int volume;
 
     app_input_event_t input_events[ 1024 ];
@@ -4101,6 +4063,8 @@ struct app_t
     int pointer_x;
     int pointer_y;
     };
+
+int app_t_size( ) { return sizeof( app_t ); }
 
 
 // The javascript event handling keeps a simple buffer of events with 3 ints per event
@@ -4239,11 +4203,8 @@ WAJIC(int, app_js_get_event, (int evt[3]),
 })
 
 
-int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx, void* fatalctx )
+int app_init( app_t* app, void* logctx, void* fatalctx )
     {
-    app_t* app = (app_t*) APP_MALLOC( memctx, sizeof( app_t ) );
-    memset( app, 0, (int)sizeof( app_t ) );
-    app->memctx = memctx;
     app->logctx = logctx;
     app->fatalctx = fatalctx;
     app->interpolation = APP_INTERPOLATION_LINEAR;
@@ -4284,8 +4245,6 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
         app->gl.GetShaderInfoLog = glGetShaderInfoLog;
     #endif
 
-    int result = 0xff;
-
     app_js_setup_canvas( &app->gl.window_width, &app->gl.window_height );
     glSetupCanvasContext( 1, 0, 0, 0 );
     glViewport( 0, 0, app->gl.window_width, app->gl.window_height );
@@ -4300,12 +4259,16 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
         goto init_failed;
         }
     WaCoroInitNew( NULL, NULL, NULL, 0 );
-    result = app_proc( app, user_data );
+
+    return EXIT_SUCCESS;
 
 init_failed:
+    app_term( app );
+    return EXIT_FAILURE;
+    }
 
-    APP_FREE( memctx, app );
-    return result;
+void app_term( app_t* app )
+    {
     }
 
 
@@ -4647,10 +4610,6 @@ void app_sound( app_t* app, int sample_pairs_count, void (*sound_callback)( APP_
     {
     app->sound_callback = sound_callback;
     app->sound_user_data = user_data;
-    if( sound_callback && !app->sound_buffer )
-        app->sound_buffer = (APP_S16*) APP_MALLOC( app->memctx, sizeof(APP_S16) * 2048 * 2 );
-    else if( !sound_callback && app->sound_buffer )
-        APP_FREE( app->memctx, app->sound_buffer );
     }
 
 
@@ -4757,6 +4716,7 @@ void app_coordinates_bitmap_to_window( app_t* app, int width, int height, int* x
 
 /*
 revision history:
+    0.6     app_init, app_term, app_t_size, removed dynamic allocation
     0.4     pointer x/y, callback for sound, modifier keys fix, gl binding fix, cursor fix
     0.3     added API documentation
     0.2     first publicly released version
