@@ -50,9 +50,14 @@ int main( int, char** )
 	assetsys_file( assetsys, "/data/readme.txt", &file );
 	int size = assetsys_file_size( assetsys, file );
 	char* content = (char*) malloc( size + 1 ); // extra space for '\0'
-	assetsys_file_load( assetsys, file, content );
-	content[ size ] = '\0'; // zero terminate the text file
-	printf( "%s\n", content );
+	int outSize = 0;
+        assetsys_file_load(assetsys, file, &outSize, content, size + 1);
+        if (outSize == 0) {
+          printf("could not find readme.txt.\n");
+        } else {
+          content[size] = '\0';
+          printf("opened readme.txt with size of %d\n\n%s\n", outSize, content);
+        }
 	free( content );
 
 	assetsys_destroy( assetsys );
