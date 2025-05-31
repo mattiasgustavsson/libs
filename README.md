@@ -43,7 +43,6 @@ dev paradigm, and if you don't absolutely need that, you are better off using th
 * ftplib.h - FTP client lib for C/C++. *By Thomas Pfau.*
 * hoedown.h - Markdown to HTML renderer for C/C++. *By Porte/Marti/Mendez/Torres.*
 * libxdiff.h - File Differential Library. *By Davide Libenzi.*
-* lzma.h - LZMA data compression/decompression library. *By Igor Pavlov.*
 * opl.h - OPL3/SB16 emulation with MIDI interface. *Based on code by Aaron Giles and Mateusz Viste* 
 * samplerate.h - Sample-rate converter (libsamplerate) for C/C++. *By Erik de Castro Lopo*
 * speech.h - Basic text-to-speech synthesizer for C/C++. *By Jari Komppa / Nick Ing-Simmons (et al)*
