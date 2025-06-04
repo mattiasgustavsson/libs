@@ -3,7 +3,6 @@ app.h
 
 Small cross-platform base framework for graphical apps.
 
-Library: [app.h](../app.h)
 
 Example
 -------
@@ -11,10 +10,16 @@ Example
 Here's a basic sample program which starts a windowed app and plots random pixels.
 
     #define  APP_IMPLEMENTATION
-    #define  APP_WINDOWS
+    #if defined( _WIN32 )
+        #define APP_WINDOWS
+    #elif defined( __wasm__ )
+        #define APP_WASM
+    #else
+        #define APP_SDL
+    #endif
     #include "app.h"
 
-    #include <stdlib.h> // for rand and __argc/__argv
+    #include <stdlib.h> // for rand, __argc/__argv, EXIT_SUCCESS
     #include <string.h> // for memset
 
     int app_proc( app_t* app, void* user_data ) {
@@ -33,16 +38,21 @@ Here's a basic sample program which starts a windowed app and plots random pixel
             // display the canvas
             app_present( app, canvas, 320, 200, 0xffffff, 0x000000 );
         }
-        return 0;
+    	return EXIT_SUCCESS; 
     }
 
     int main( int argc, char** argv ) {
-        (void) argc, argv;
         return app_run( app_proc, NULL, NULL, NULL, NULL );
     }
 
-    // pass-through so the program will build with either /SUBSYSTEM:WINDOWS or /SUBSYSTEN:CONSOLE
-    extern "C" int __stdcall WinMain( struct HINSTANCE__*, struct HINSTANCE__*, char*, int ) { return main( __argc, __argv ); }
+    // pass-through so the program will build with either /SUBSYSTEM:WINDOWS or /SUBSYSTEM:CONSOLE
+    #ifdef __cplusplus
+        extern "C" 
+    #endif
+    int __stdcall WinMain( struct HINSTANCE__* a, struct HINSTANCE__* b, char* c, int d ) { 
+        return main( __argc, __argv ); 
+    }
+
 
 
 
@@ -59,7 +69,12 @@ As app.h is a cross platform library, you must also define which platform you ar
     #define APP_WINDOWS
     #include "app.h"
 
-Or like this for other platforms:
+like this for web assembly (browsers):
+    #define APP_IMPLEMENTATION
+    #define APP_WASM
+    #include "app.h"
+
+or like this for other platforms (osx, linux):
     #define APP_IMPLEMENTATION
     #define APP_SDL
     #include "app.h"
@@ -67,13 +82,24 @@ Or like this for other platforms:
 ### Customization
 
 There are a few different things in app.h which are configurable by #defines. Most of the API use the `int` data type,
-for integer values where the exact size is not important. However, for some functions, it specifically makes use of 16,
-32 and 64 bit data types. These default to using `short`, `unsigned int` and `unsigned long long` by default, but can be
-redefined by #defining APP_S16, APP_U32 and APP_U64 respectively, before including app.h. This is useful if you, for
-example, use the types from `<stdint.h>` in the rest of your program, and you want app.h to use compatible types. In
-this case, you would include app.h using the following code:
+for integer values where the exact size is not important. However, for some functions, it specifically makes use of 
+data types with specific bit width and signedness. These have default definitions combining basic C datatypes and the
+`unsigned` modifier, but can be redefined before including app.h. This is useful if you, for example, use the types 
+from `<stdint.h>` in the rest of your program, and you want app.h to use the same types. app.h makes use of these
+data types, shown here with their default definitions:
 
+    #define APP_U8 unsigned char
+    #define APP_S16 short
+    #define APP_U16 unsigned short
+    #define APP_U32 unsigned int
+    #define APP_U64 unsigned long long
+
+As an example, if you wanted to redefine them to use the types from `<stdint.h>` you would do:
+
+    #include <stdint.h>
+    #define APP_U8 uint8_t
     #define APP_S16 int16_t
+    #define APP_U16 uint16_t
     #define APP_U32 uint32_t
     #define APP_U64 uint64_t
     #include "app.h"
@@ -109,43 +135,24 @@ If no custom allocator is defined, app.h will default to `malloc` and `free` fro
 
 #### Custom logging function
 
-There's a bunch of things being logged when app.h runs. It will log an informational entry with the date and time for
-when the app is started and stopped, it will log warnings when non-essential initialization fails, and it will log
-error messages when things go wrong. By default, logging is done by a simple printf to stdout. As some applications may
-need a different behavior, such as writing out a log file, it is possible to override the default logging behavior
-through defines like this:
+During successful operation, app.h will not log anything, but anytime something goes wrong, it will log an error or
+warning message. By default, logging is done by a simple printf to stdout (or in the case of wasm, a `console.log`). 
+As some applications may need a different behavior, such as writing out a log file, it is possible to override the 
+default logging behavior through a define like this:
 
     #define APP_IMPLEMENTATION
-    #define APP_LOG( ctx, level, message ) ( my_log_func( ctx, level, message ) )
+    #define APP_LOG( ctx, message ) ( my_log_func( ctx, message ) )
     #include "app.h"
 
 where `my_log_func` is your own logging function. Just like for the memory allocators, the `ctx` parameter is optional,
 and is just a `void*` value which is passed through. But in the case of logging, it will be passed through as the value
-off the `logctx` parameter passed into `app_run`. The `level` parameter specifies the severity level of the logging,
-and can be used to direct different types of messages to different logging systems, or filter out messages of certain
-severity level, e.g. supressing informational messages.
-
-
-#### Custom fatal error function
-
-As the app.h library works on the lowest level of your program, interfacing directly with the operating system, there
-might occur errors which it can not recover from. In these cases, a *fatal error* will be reported. By default, when a
-fatal error happens, app.h will print a message to stdout, show a messagebox to the user, and force exit the program.
-
-It is possible to change this behaviour using the following define:
-
-    #define APP_IMPLEMENTATION
-    #define APP_FATAL_ERROR( ctx, message ) ( my_custom_fatal_error_func( ctx, message ) )
-    #include "app.h"
-
-where `my_custom_fatal_error_func` is your own error reporting function. The `ctx` parameter fills the same purpose as
-for the allocator and logging functions, but here it is the `fatalctx` parameter to `app_run` which is passed through.
+off the `logctx` parameter passed into `app_run`. 
 
 
 app_run
 -------
 
-    int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx, void* fatalctx )
+    int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, void* logctx )
 
 Creates a new app instance, calls the given app_proc and waits for it to return. Then it destroys the app instance.
 
@@ -155,8 +162,6 @@ Creates a new app instance, calls the given app_proc and waits for it to return.
 * user_data - pointer to user defined data which will be passed through to app_proc. May be NULL.
 * memctx - pointer to user defined data which will be passed through to custom APP_MALLOC/APP_FREE calls. May be NULL.
 * logctx - pointer to user defined data to be passed through to custom APP_LOG calls. May be NULL.
-* fatalctx - pointer to user defined data to be passed through to custom APP_FATAL_ERROR calls. May be NULL.
-
 When app_run is called, it will perform all the initialization needed by app.h, and create an `app_t*` instance. It will
 then call the user-specified `app_proc`, and wait for it to return. The `app_t*` instance will be passed to `app_proc`,
 and can be used to call other functions in the API. When returning from `app_proc`, a return value is specified, and
@@ -178,13 +183,15 @@ the user have requested the app to terminate, e.g. by pressing the *close* butto
 `app_cancel_exit` to ignore the request. A typical pattern is to display a message to the user to confirm that the app
 should exit. In the case of `APP_STATE_NORMAL`, there is no need to do anything.
 
+Note: for wasm builds, only `APP_STATE_NORMAL` is supported, and it will never return `APP_STATE_EXIT_REQUESTED`
+
 
 app_cancel_exit
 ---------------
 
     void app_cancel_exit( app_t* app )
 
-Used to reset the `APP_STATE_EXIT_REQUESTED` state. See `app_yield` for details.
+Used to reset the `APP_STATE_EXIT_REQUESTED` state. See `app_yield` for details. 
 
 
 app_title
@@ -192,47 +199,7 @@ app_title
 
     void app_title( app_t* app, char const* title )
 
-Sets the name of the application, which is displayed in the task switcher and in the title bar of the window.
-
-
-app_cmdline
------------
-
-    char const* app_cmdline( app_t* app )
-
-Returns the command line string used to launch the executable. This can be parsed to get command line arguments.
-
-
-app_filename
-------------
-
-    char const* app_filename( app_t* app )
-
-Returns the full filename and path of the executable. The first part of `app_cmdline` usually contains the name of the
-executable, but not necessarily the full path, depending on how it was launched. `app_filename`, however, always returns
-the full path.
-
-
-app_userdata
-------------
-
-    char const* app_userdata( app_t* app )
-
-Returns the full path to a directory where a users personal files can be stored. Depending on the access rights of the
-user, it may or may not be possible to write data to the same location as the executable, and instead it must be stored
-in a specific area designated by the operating system. `app_userdata` returns the path to the root if that directory.
-A typical use for this is to store the users savegame files, by creating a subfolder corresponding to your app, and save
-the data there.
-
-
-app_appdata
------------
-
-    char const* app_appdata( app_t* app )
-
-Returns the full path to a directory where application specific files can be stored. Similar to the location returned by
-`app_userdata`, but suitable for application data shared between users. Typical use for this is to store the result of
-cached calculations or temporary files.
+Sets the name of the application, which is displayed in the task switcher and in the title bar of the window or browser.
 
 
 app_time_count
@@ -260,53 +227,15 @@ Returns the number of clock ticks per second of the high precision clock. An exa
 to measure the time between two iterations through your main loop.
 
 
-app_log
--------
-
-    void app_log( app_t* app, app_log_level_t level, char const* message )
-
-app.h will do logging on certain events, e.q when the app starts and ends or when something goes wrong. As the logging
-can be customized (see section on customization), it might be desirable for the program to do its own logging the same
-way as app.h does it. By calling `app_log`, logging will be done the same way as it is done inside app.h, whether custom
-logging or default logging is being used.
-
-
-app_fatal_error
----------------
-
-    void app_fatal_error( app_t* app, char const* message )
-
-Same as with app_log, but for reporting fatal errors, `app_fatal_error` will report an error the same way as is done
-internally in app.h, whether custom or default fatal error reporting is being used.
-
-
 app_pointer
 -----------
 
-    void app_pointer( app_t* app, int width, int height, APP_U32* pixels_abgr, int hotspot_x, int hotspot_y )
-
-Sets the appearence current mouse pointer. `app_pointer` is called with the following parameters:
-
-* width, height - the horizontal and vertical dimensions of the mouse pointer bitmap.
-* pixels_abgr - width x height number of pixels making up the pointer bitmap, each pixel being a 32-bit unsigned integer
-    where the highest 8 bits are the alpha channel, and the following 8-bit groups are blue, green and red channels.
-* hotspot_x, hotspot_y - offset into the bitmap of the pointer origin, the center point it will be drawn at.
+    void app_pointer( app_t* app, app_pointer_t pointer )
 
 
-app_pointer_default
--------------------
-
-    void app_pointer_default( app_t* app, int* width, int* height, APP_U32* pixels_abgr, int* hotspot_x, int* hotspot_y )
-
-Retrieves the width, height, pixel data and hotspot for the default mouse pointer. Useful for restoring the default
-pointer after using `app_pointer`, or for doing software rendered pointers. Called with the following parameters:
-
-* width, height - pointers to integer values that are to receive the width and height of the pointer. May be NULL.
-* pixels_abgr - width x height number of pixels to receive the pointer bitmap. May be NULL
-* hotspot_x, hotspot_y - pointers to integer values that are to receive the hotspot coordinates. May be NULL.
-
-A typical pattern for calling `app_pointer_default` is to first call it with `pixels_abgr` as NULL, to query the bitmaps
-dimensions, and then call it again after preparing a large enough memory area.
+Shows or hides the mouse pointer. `APP_POINTER_HIDE` is used to hide the pointer, and `APP_POINTER_SHOW` is used to
+show the pointer (the default). The pointer will be hidden when over the client area of the window or browser, but
+not when over the title bar or resize regions.
 
 
 app_pointer_pos
@@ -317,23 +246,7 @@ app_pointer_pos
 Set the position of the mouse pointer, in window coordinates. The function `app_coordinates_bitmap_to_window` can be
 used to convert between the coordinate system of the currently displayed bitmap and that of the window.
 
-
-app_pointer_limit
------------------
-
-    void app_pointer_limit( app_t* app, int x, int y, int width, int height )
-
-Locks the mouse pointer movements to stay within the specified area, in window coordinates. The function
-`app_coordinates_bitmap_to_window` can be used to convert between the coordinate system of the currently displayed
-bitmap and that of the window.
-
-
-app_pointer_limit_off
----------------------
-
-    void app_pointer_limit_off( app_t* app )
-
-Turns of the mouse pointer movement restriction, allowing the pointer to be moved freely again.
+Note: Setting the pointer position is not supported for wasm/browser builds
 
 
 app_interpolation
@@ -370,6 +283,8 @@ Sets the size of the window. If currently in `APP_SCREENMODE_FULLSCREEN` screen 
 until switching to `APP_SCREENMODE_WINDOW`. `width` and `height` specifies the size of the windows client area, not
 counting borders, title bar or decorations.
 
+Note: Setting the window size is not supported for wasm/browser builds
+
 
 app_window_width/app_window_height
 ----------------------------------
@@ -390,6 +305,8 @@ app_window_pos
 
 Sets the position of the top left corner of the window. If currently in `APP_SCREENMODE_FULLSCREEN` screen mode, the
 setting will not take effect until switching to `APP_SCREENMODE_WINDOW`.
+
+Note: Setting the window position is not supported for wasm/browser builds
 
 
 app_window_x/app_window_y
@@ -412,6 +329,9 @@ Returns a list of all displays connected to the system. For each display, the fo
 * x, y - position of the top left corner of the display, relative to the primary dispay which is always at 0,0.
 * width, height - size of the display, in pixels.
 
+Note: For wasm/browser builds, only the display that the browser window is currently located on will be reported,
+and only the width/height values contain valid information.
+
 
 app_present
 -----------
@@ -432,51 +352,36 @@ the screen. `app_present` takes the following parameters:
     are visible when the window aspect ratio does not match that of the bitmap, so you get bars above or below it.
 
 Since app.h uses opengl, you can also opt to not pass a bitmap to `app_present`, by passing NULL as the `pixels_xbgr`
-parameter (in which case the rest of the parameters are ignored). When doing this, it is up to your program to perform
-drawing using opengl calls. In this case `app_present` will work as a call to SwapBuffers only. Note that glSetViewPort
-will be automatically called whenever the window is resized.
+parameter (in which case the rest of the parameters are ignored). When doing this, it is up to your program to draw by 
+using opengl calls. In this case `app_present` will work as a call to SwapBuffers (or equivalent) only. Note that 
+glSetViewPort will be automatically called whenever the window is resized.
 
 
-app_sound_buffer_size
----------------------
+app_sound
+---------
 
-    void app_sound_buffer_size( app_t* app, int sample_pairs_count )
+    void app_sound( app_t* app, int sample_pairs_count, 
+        void (*sound_callback)( APP_S16* sample_pairs, int sample_pairs_count, void* user_data ), 
+        void* user_data );
 
 The api for playing sound samples is just as minimal as that for drawing. app.h provides a single, looping sound stream,
-and it is up to your program to handle sound formats, voices and mixing. By calling `app_sound_buffer_size`, a sound
-stream of the specified size is initialized, and playback is started. If a `sample_pairs_count` of 0 is given, sound
-playback will be stopped.
+and it is up to your program to handle sound formats, voices and mixing. By calling `app_sound`, a sound stream of the 
+specified size `sample_pairs_count` is initialized, and playback is started. If a `sample_pairs_count` of 0 is given, or
+if a `sound_callback` of `NULL` is specified, sound playback will be stopped.
 
-The sound buffer is in 44100hz, signed 16-bit stereo format, and the `sample_pairs_count` specified how many left/right
+The sound buffer is in 44100hz, signed 16-bit stereo format, and the `sample_pairs_count` specifies how many left/right
 pairs of 16-bit samples the buffer will contain. As an example, to specify a 1 second stream buffer, you would give the
 value 44100 for the `sample_pairs_count` parameter, which would internally create a sound buffer of 176,400 bytes, from
 44100 samples x 2 channels x 2 bytes per sample. However, since the bits per sample and number of channels are fixed,
-the exact byte size of the sound buffer is not important in the app.h API.
+the exact byte size of the sound buffer is not important in the app.h API. 
 
+The `sound_callback` function will be called from an internal audio thread whenever new audio data is needed. It is 
+passed a pointer to a buffer of `sample_pairs_count` stereo sample pairs (signed 16-bit, interleaved L/R), which your 
+function must fill with audio data. The `user_data` pointer is passed through unchanged from the call to `app_sound`, and 
+can be used to access application state or audio sources.
 
-app_sound_position
-------------------
-
-    int app_sound_position( app_t* app )
-
-Returns the current playback position of the sound stream, given in the number of sample pairs from the start of the
-buffer. Typical use of a streaming sound buffer is to fill the buffer with data, wait for the playback position to get
-passed the mid point of the buffer, and then write the next bit of data over the part that has already been played, and
-so on.
-
-
-app_sound_write
----------------
-
-    void app_sound_write( app_t* app, int sample_pairs_offset, int sample_pairs_count, APP_S16 const* sample_pairs )
-
-Writes sample data to the sound buffer. It takes the following parameters:
-
-* sample_pairs_offset - the offset into the buffer of where to start writing, in number of sample pairs from the start.
-* sample_pairs_count - the number of sample pairs to write. Must be less than the buffer size.
-* sample_pairs - an array of sound samples, as signed 16-bit integers. Must be at least `sample_pairs_count` in length.
-
-The `sample_pairs` parameter can be NULL, in which case the corresponding part of the buffer is cleared.
+Note: For wasm/browser builds, `sample_pairs_count` will be ignored, and will always bee 2205 (unless specified as 0 to
+stop the sound stream).
 
 
 app_sound_volume
@@ -522,14 +427,6 @@ struct is a union of fields, where only one of them is valid, depending on the v
     the scroll wheel on the mouse was turned, where positive values indicate that the wheel have been rotated away from
     the user, and negative values means it has turned towards the user. The `APP_INPUT_SCROLL_WHEEL` is sent every time
     the user turns the scroll wheel, as long as the window has focus.
-* APP_INPUT_TABLET - use the `tablet` field of the `data` union, which contains details about the pen used with a
-    graphical tablet, if connected and installed. The `x` and `y` fields are the horizontal and vertical positions of
-    the pen on the tablet, scaled to the coordinate system of the window. The function `app_coordinates_window_to_bitmap`
-    can be used to convert between the coordinate system of the window and that of the currently displayed bitmap. The
-    `pressure` field is the current pressure of the pen against the tablet, in normalized 0.0f to 1.0f range, inclusive,
-    where 0.0f means no pressure and 1.0f means full pressure. The `tip` field is set to `APP_PRESSED` if the tip of the
-    pen is touching the tablet at all, and to `APP_NOT_PRESSED` otherwise. The `upper` and `lower` fields indicate the
-    current state of the buttons on the side of the pen. The "eraser" part of the pen is not currently supported.
 
 
 app_coordinates_window_to_bitmap
@@ -558,3 +455,35 @@ app_coordinates_bitmap_to_window
 This performs the opposite translation to `app_coordinates_window_to_bitmap` - it converts a position given in the
 coordinate system of the bitmap into the coordinate system of the window. See `app_coordinates_window_to_bitmap` for
 details.
+
+
+app_gamepad
+-----------
+
+    app_gamepad_status_t app_gamepad( app_t* app, int index, app_gamepad_t* gamepad, app_gamepad_vibration_t* vibration )
+
+Used to query the state of a connected gamepad, and/or to set vibration feedback. The `index` parameter specifies which 
+gamepad to query, in the range 0 to 3. Both `gamepad` and `vibration` are optional and may be NULL.
+
+* index - the zero-based index of the gamepad to query or set vibration state for, between 0 and 3 inclusively.
+* gamepad - pointer to an `app_gamepad_t` struct that will be filled with the current state of the specified gamepad. 
+    This parameter is optional, and can be NULL if gamepad state is not to be read.
+* vibration - pointer to an `app_gamepad_vibration_t` struct that specifies the vibration state to apply to the
+    specified gamepad. This parameter is optional, and can be NULL if no vibration state is to be applied.
+
+The return value is an `app_gamepad_status_t`, which will be either `APP_GAMEPAD_STATUS_CONNECTED` or 
+`APP_GAMEPAD_STATUS_NOT_CONNECTED`, indicating whether a gamepad is currently connected at the given index.
+
+The `app_gamepad_t` struct contains:
+* `buttons` - bitmask of currently pressed buttons. Use the values in the `app_gamepad_button_t` enum to mask each button 
+    value.
+* `trigger_left`, `trigger_right` - analog trigger values, 0–255.
+* `stick_left_x`, `stick_left_y`, `stick_right_x`, `stick_right_y` - analog stick positions as signed 16-bit values, in 
+    the range -32768 to 32767, where a negative value indicates left or down, and a positive value indicates right or up.
+
+The `app_gamepad_vibration_t` struct contains:
+* `low_frequency`, `high_frequency` - vibration strengths (0–65535) for the low- and high-frequency motors.
+* `duration_ms` - duration of vibration in milliseconds.
+
+Note: If both `gamepad` and `vibration` are NULL, the function simply returns the connection status for the specified 
+gamepad, without querying state or setting vibration. 
