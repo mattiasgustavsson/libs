@@ -39,7 +39,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v1
-      - uses: robinraju/release-downloader@v1.2
+      - uses: robinraju/release-downloader@v1
         with:
           repository: "mattiasgustavsson/tcc-build"
           tag: "tcc64"
