@@ -5,6 +5,7 @@ Single-file public domain libraries for C/C++ (dual licensed under MIT).
 
 * [app.h](docs/app.md) - Small cross-platform base framework for graphical apps, for C/C++.
 * [assetsys.h](docs/assetsys.md) - File system abstraction to read from zip-files, for C/C++.
+* [frametimer.h](docs/frametimer.md) - Framerate timer and frame rate limiter, for C/C++.
 * [hashtable.h](docs/hashtable.md) - Cache efficient hash table implementation for C/C++.
 * [http.h](docs/http.md) - Basic HTTP protocol implementation over sockets (no https).
 * [ini.h](docs/ini.md) - Simple ini-file reader for C/C++.
@@ -23,7 +24,6 @@ More libs, work-in-progress, some are unfinished, some are complete but lacking 
 * cstr.h - String interning and manipulation library for C/C++.
 * dialog.h - Loading and management of dialogs for a custom game dialog system.
 * dir.h - Directory listing functions for C/C++.
-* frametimer.h - Framerate timer functionality, for C/C++.
 * id3tag.h - Read/write ID3 tags from/to mp3 files in C/C++.
 * img.h - Image processing functions for C/C++.
 * mus.h - Parsing library for MUS music files (as used in DOS games).

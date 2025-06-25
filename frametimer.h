@@ -3,7 +3,7 @@
 		  Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-frametimer.h - v1.0 - Framerate timer and frame rate limiter functionality.
+frametimer.h - v1.0 - Framerate timer and frame rate limiter, for C/C++
 
 Do this:
 	#define FRAMETIMER_IMPLEMENTATION

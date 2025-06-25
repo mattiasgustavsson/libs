@@ -1,7 +1,7 @@
 app.h
 =====
 
-Small cross-platform base framework for graphical apps.
+Library: [app.h](../app.h)
 
 
 Example
