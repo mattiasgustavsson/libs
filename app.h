@@ -117,7 +117,7 @@ typedef enum app_pressed_t { APP_NOT_PRESSED, APP_PRESSED, } app_pressed_t;
 
 typedef struct app_input_event_t {
     app_input_type_t type;
-    union data_t {
+    union app_input_event_data_t {
         app_key_t key;
         char char_code;
         struct { int x; int y; } mouse_pos;
@@ -239,9 +239,9 @@ Here's a basic sample program which starts a windowed app and plots random pixel
 API Documentation
 -----------------
 
-app.h is a single-header library, and does not need any .lib files or other binaries, or any build scripts. To use it,
-you just include app.h to get the API declarations. To get the definitions, you must include app.h from *one* single
-C or C++ file, and #define the symbol `APP_IMPLEMENTATION` before you do.
+app.h is a single-header library, and (for Windows and Wasm/web) does not need any .lib files or other binaries, or 
+any build scripts. To use it, you just include app.h to get the API declarations. To get the definitions, you must 
+include app.h from *one* single C or C++ file, and #define the symbol `APP_IMPLEMENTATION` before you do.
 
 As app.h is a cross platform library, you must also define which platform you are running on, like this for Windows:
 
@@ -258,6 +258,8 @@ or like this for other platforms (osx, linux):
     #define APP_IMPLEMENTATION
     #define APP_SDL
     #include "app.h"
+
+Note: When using the APP_SDL platform, you need to link with sdl2, glew and opengl.
 
 ### Customization
 
@@ -2648,6 +2650,7 @@ static void app_internal_sound_write( app_t* app, int sample_pairs_offset, int s
         APP_LOG( app->logctx, "Couldn't lock sound buffer" );
         IDirectSound8_Release( app->dsound );
         app->dsound = 0;
+        InterlockedExchange( &app->exit_sound_thread, 1 );
         return;
     }
 
@@ -2661,6 +2664,7 @@ static void app_internal_sound_write( app_t* app, int sample_pairs_offset, int s
         APP_LOG( app->logctx, "Couldn't unlock sound buffer" );
         IDirectSound8_Release( app->dsound );
         app->dsound = 0;
+        InterlockedExchange( &app->exit_sound_thread, 1 );
         return;
     }
 }
@@ -4062,7 +4066,7 @@ void app_cancel_exit( app_t* app ) {
 
 
 WAJIC(void, app_js_title, (char const* title), {
-    window.top.document.title = MStrGet(title);
+    document.title = MStrGet(title);
 })
 
 
@@ -4223,7 +4227,7 @@ WAJIC(int, app_js_audio_push, (APP_S16* sample_pairs, int volume), {
     sample_pairs = new Int16Array(MU8.buffer).subarray(sample_pairs>>1);
     var buf = audio_bufs[audio_bufidx = ((audio_bufidx + 1) % 10)];
     var left = buf.getChannelData(0), right = buf.getChannelData(1);
-    var f = (1 / 32768) * (volume / 255);
+    var f = (1 / 32768) * (volume / 256);
     for (var i = 0; i != 2205; i++) {
         left[i] = sample_pairs[i*2] * f;
         right[i] = sample_pairs[i*2+1] * f;
