@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-app.h - v0.6 - Small cross-platform base framework for graphical apps.
+app.h - v0.7 - Small cross-platform base framework for graphical apps.
 
 Do this:
     #define APP_IMPLEMENTATION
@@ -825,6 +825,7 @@ struct app_internal_opengl_t {
     void (APP_GLCALLTYPE* Uniform3f) (APP_GLint location, APP_GLfloat v0, APP_GLfloat v1, APP_GLfloat v2);
     APP_GLint (APP_GLCALLTYPE* GetUniformLocation) (APP_GLuint program, APP_GLchar const* name);
     void (APP_GLCALLTYPE* TexImage2D) (APP_GLenum target, APP_GLint level, APP_GLint internalformat, APP_GLsizei width, APP_GLsizei height, APP_GLint border, APP_GLenum format, APP_GLenum type, void const* pixels);
+    void (APP_GLCALLTYPE* TexSubImage2D) (APP_GLenum target, APP_GLint level, APP_GLint xoffset, APP_GLint yoffset, APP_GLsizei width, APP_GLsizei height, APP_GLenum format, APP_GLenum type, const void * pixels);
     void (APP_GLCALLTYPE* ClearColor) (APP_GLfloat red, APP_GLfloat green, APP_GLfloat blue, APP_GLfloat alpha);
     void (APP_GLCALLTYPE* Clear) (APP_GLbitfield mask);
     void (APP_GLCALLTYPE* DrawArrays) (APP_GLenum mode, APP_GLint first, APP_GLsizei count);
@@ -838,6 +839,8 @@ struct app_internal_opengl_t {
     app_interpolation_t interpolation;
     int window_width;
     int window_height;
+    int last_width;
+    int last_height;
 
     APP_GLuint vertexbuffer;
     APP_GLuint texture;
@@ -849,6 +852,8 @@ static int app_internal_opengl_init( struct app_internal_opengl_t* gl, app_inter
     gl->interpolation = interpolation;
     gl->window_width = window_width;
     gl->window_height = window_height;
+    gl->last_width = 0;
+    gl->last_height = 0;
 
     char const* vs_source =
         #ifdef APP_WASM
@@ -1046,7 +1051,13 @@ static int app_internal_opengl_present( struct app_internal_opengl_t* gl, APP_U3
 
     gl->ActiveTexture( APP_GL_TEXTURE0 );
     gl->BindTexture( APP_GL_TEXTURE_2D, gl->texture );
-    gl->TexImage2D( APP_GL_TEXTURE_2D, 0, APP_GL_RGBA, width, height, 0, APP_GL_RGBA, APP_GL_UNSIGNED_BYTE, pixels_xbgr );
+    if( width != gl->last_width || height != gl->last_height ) {
+        gl->TexImage2D( APP_GL_TEXTURE_2D, 0, APP_GL_RGBA, width, height, 0, APP_GL_RGBA, APP_GL_UNSIGNED_BYTE, pixels_xbgr );
+        gl->last_width = width;
+        gl->last_height = height;
+    } else {
+        gl->TexSubImage2D( APP_GL_TEXTURE_2D, 0, 0, 0, width, height, APP_GL_RGBA, APP_GL_UNSIGNED_BYTE, pixels_xbgr );
+    }
 
     if( gl->interpolation == APP_INTERPOLATION_LINEAR ) {
         gl->TexParameteri( APP_GL_TEXTURE_2D, APP_GL_TEXTURE_MIN_FILTER, APP_GL_LINEAR );
@@ -2143,6 +2154,7 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
     app->gl.Uniform3f = ( void (APP_GLCALLTYPE*) (APP_GLint, APP_GLfloat, APP_GLfloat, APP_GLfloat) ) (uintptr_t) GetProcAddress( app->gl_dll, "glUniform3f" );
     app->gl.GetUniformLocation = ( APP_GLint (APP_GLCALLTYPE*) (APP_GLuint, APP_GLchar const*) ) (uintptr_t) GetProcAddress( app->gl_dll, "glGetUniformLocation" );
     app->gl.TexImage2D = ( void (APP_GLCALLTYPE*) (APP_GLenum, APP_GLint, APP_GLint, APP_GLsizei, APP_GLsizei, APP_GLint, APP_GLenum, APP_GLenum, void const*) ) (uintptr_t) GetProcAddress( app->gl_dll, "glTexImage2D" );
+    app->gl.TexSubImage2D = ( void (APP_GLCALLTYPE*) (APP_GLenum, APP_GLint, APP_GLint, APP_GLint, APP_GLsizei, APP_GLsizei, APP_GLenum, APP_GLenum, const void *) ) (uintptr_t) GetProcAddress( app->gl_dll, "glTexSubImage2D" );
     app->gl.ClearColor = ( void (APP_GLCALLTYPE*) (APP_GLfloat, APP_GLfloat, APP_GLfloat, APP_GLfloat) ) (uintptr_t) GetProcAddress( app->gl_dll, "glClearColor" );
     app->gl.Clear = ( void (APP_GLCALLTYPE*) (APP_GLbitfield) ) (uintptr_t) GetProcAddress( app->gl_dll, "glClear" );
     app->gl.DrawArrays = ( void (APP_GLCALLTYPE*) (APP_GLenum, APP_GLint, APP_GLsizei) ) (uintptr_t) GetProcAddress( app->gl_dll, "glDrawArrays" );
@@ -2180,6 +2192,7 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
     if( !app->gl.Uniform3f ) app->gl.Uniform3f = ( void (APP_GLCALLTYPE*) (APP_GLint, APP_GLfloat, APP_GLfloat, APP_GLfloat) ) (uintptr_t) app->wglGetProcAddress( "glUniform3f" );
     if( !app->gl.GetUniformLocation ) app->gl.GetUniformLocation = ( APP_GLint (APP_GLCALLTYPE*) (APP_GLuint, APP_GLchar const*) ) (uintptr_t) app->wglGetProcAddress( "glGetUniformLocation" );
     if( !app->gl.TexImage2D ) app->gl.TexImage2D = ( void (APP_GLCALLTYPE*) (APP_GLenum, APP_GLint, APP_GLint, APP_GLsizei, APP_GLsizei, APP_GLint, APP_GLenum, APP_GLenum, void const*) ) (uintptr_t) app->wglGetProcAddress( "glTexImage2D" );
+    if( !app->gl.TexSubImage2D ) app->gl.TexSubImage2D = ( void (APP_GLCALLTYPE*) (APP_GLenum, APP_GLint, APP_GLint, APP_GLint, APP_GLsizei, APP_GLsizei, APP_GLenum, APP_GLenum, const void *) ) (uintptr_t) app->wglGetProcAddress( "glTexSubImage2D" );
     if( !app->gl.ClearColor ) app->gl.ClearColor = ( void (APP_GLCALLTYPE*) (APP_GLfloat, APP_GLfloat, APP_GLfloat, APP_GLfloat) ) (uintptr_t) app->wglGetProcAddress( "glClearColor" );
     if( !app->gl.Clear ) app->gl.Clear = ( void (APP_GLCALLTYPE*) (APP_GLbitfield) ) (uintptr_t) app->wglGetProcAddress( "glClear" );
     if( !app->gl.DrawArrays ) app->gl.DrawArrays = ( void (APP_GLCALLTYPE*) (APP_GLenum, APP_GLint, APP_GLsizei) ) (uintptr_t) app->wglGetProcAddress( "glDrawArrays" );
@@ -2217,6 +2230,7 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
     if( !app->gl.Uniform3f ) { APP_LOG( app->logctx, "Could not find function Uniform3f." ); goto init_failed; }
     if( !app->gl.GetUniformLocation ) { APP_LOG( app->logctx, "Could not find function GetUniformLocation." ); goto init_failed; }
     if( !app->gl.TexImage2D ) { APP_LOG( app->logctx, "Could not find function TexImage2D." ); goto init_failed; }
+    if( !app->gl.TexSubImage2D ) { APP_LOG( app->logctx, "Could not find function TexSubImage2D." ); goto init_failed; }
     if( !app->gl.ClearColor ) { APP_LOG( app->logctx, "Could not find function ClearColor." ); goto init_failed; }
     if( !app->gl.Clear ) { APP_LOG( app->logctx, "Could not find function Clear." ); goto init_failed; }
     if( !app->gl.DrawArrays ) { APP_LOG( app->logctx, "Could not find function DrawArrays." ); goto init_failed; }
@@ -3099,6 +3113,7 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
     app->gl.Uniform3f = glUniform3f;
     app->gl.GetUniformLocation = glGetUniformLocation;
     app->gl.TexImage2D = glTexImage2D;
+    app->gl.TexSubImage2D = glTexSubImage2D;
     app->gl.ClearColor = glClearColor;
     app->gl.Clear = glClear;
     app->gl.DrawArrays = glDrawArrays;
@@ -3901,6 +3916,7 @@ int app_run( int (*app_proc)( app_t*, void* ), void* user_data, void* memctx, vo
     app->gl.Uniform3f = glUniform3f;
     app->gl.GetUniformLocation = glGetUniformLocation;
     app->gl.TexImage2D = glTexImage2D;
+    app->gl.TexSubImage2D = glTexSubImage2D;
     app->gl.ClearColor = glClearColor;
     app->gl.Clear = glClear;
     app->gl.DrawArrays = glDrawArrays;
@@ -4425,6 +4441,7 @@ app_gamepad_status_t app_gamepad( app_t* app, int index, app_gamepad_t* gamepad,
 
 /*
 revision history:
+    0.7     use glTexSubImage2D in present, renamed data_t, docs improvement, wasm title fix
     0.6     gamepad support, improved wasm support, reworked mouse pointer functions
     0.5     wasm support, mouse button key events, optional media hotkeys, SDL text input     
     0.4     pointer x/y, callback for sound, modifier keys fix, gl binding fix, cursor fix
