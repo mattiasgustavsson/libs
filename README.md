@@ -12,6 +12,7 @@ Single-file public domain libraries for C/C++ (dual licensed under MIT).
 * [rnd.h](docs/rnd.md) - Pseudo-random number generators for C/C++.
 * [strpool.h](docs/strpool.md) - Highly efficient string pool for C/C++.
 * [thread.h](docs/thread.md) - Cross platform threading functions for C/C++.
+* [vecmath.h](docs/vecmath.md) - Vector/matrix math library for C/C++.
 
 
 # wip libs
