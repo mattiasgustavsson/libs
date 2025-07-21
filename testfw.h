@@ -15,7 +15,7 @@ before you include this file in *one* C/C++ file to create the implementation.
 
 #define TESTFW_INIT() testfw_init()
 #define TESTFW_SUMMARY() testfw_summary( __FILE__, __func__, __LINE__ )
-#if defined( _WIN32 ) && !defined( TESTFW_NO_SEH ) && !defined( __TINYC__ )
+#if defined( _WIN32 ) && !defined( TESTFW_NO_SEH ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
     #if defined __cplusplus
         extern "C" unsigned long __cdecl _exception_code(void);
     #else
@@ -40,7 +40,7 @@ void testfw_print_test_desc( void );
 void testfw_print_failure( char const* filename, int line );
 void testfw_assertion_count_inc( void );
 void testfw_current_test_assertion_failed( void );
-#if defined( _WIN32 ) && !defined( TESTFW_NO_SEH ) && !defined( __TINYC__ )
+#if defined( _WIN32 ) && !defined( TESTFW_NO_SEH ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
     void testfw_exception( unsigned int exception_code );
 #endif
 
@@ -56,7 +56,7 @@ void testfw_current_test_assertion_failed( void );
 #define _CRT_SECURE_NO_WARNINGS
 #include <string.h>
 
-#if defined( _WIN32 ) && !defined( __TINYC__ )
+#if defined( _WIN32 ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
     #pragma warning( push ) 
     #pragma warning( disable: 4619 ) // pragma warning : there is no warning number 'number'
     #pragma warning( disable: 4668 ) // 'symbol' is not defined as a preprocessor macro, replacing with '0' 
@@ -164,7 +164,7 @@ static struct
     int assertions_total;
     int assertions_failed;
     struct testfw_internal_current_test_state_t current_test;
-    #if defined( _WIN32 ) && defined( _DEBUG )  && !defined( __TINYC__ )
+    #if defined( _WIN32 ) && defined( _DEBUG )  && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
         int total_leaks;
     #endif
     } testfw_internal_state;
@@ -189,7 +189,7 @@ static void testfw_internal_print_progress_divider( char ch, int fail, int total
     }
 
 
-#if defined( _WIN32 ) && defined( _DEBUG ) && !defined( __TINYC__ )
+#if defined( _WIN32 ) && defined( _DEBUG ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
 
     static int testfw_internal_debug_report_hook( int report_type, char* message, int* return_value ) 
         { 
@@ -245,7 +245,10 @@ static void testfw_internal_print_progress_divider( char ch, int fail, int total
 
 
 #if defined( _WIN32 ) 
+    #pragma warning( push )
+    #pragma warning( disable: 4668 )
     #include <windows.h>
+    #pragma warning( pop )
 #endif
 
 
@@ -253,7 +256,7 @@ void testfw_init( void )
     {
     memset( &testfw_internal_state, 0, sizeof( testfw_internal_state ) );
 
-    #if defined( _WIN32 ) 
+    #if defined( _WIN32 ) && !defined( __GNUC__ ) && !defined( __clang__ )
         #if !defined( __TINYC__ )
             int flag = _CrtSetDbgFlag( _CRTDBG_REPORT_FLAG ); // Get current flag
             flag ^= _CRTDBG_LEAK_CHECK_DF; // Turn on leak-checking bit
@@ -343,7 +346,7 @@ int testfw_summary( char const* filename, char const* funcname, int line )
 
     TESTFW_PRINTF( "\n\n" );
 
-    #if defined( _WIN32 ) && defined( _DEBUG ) && !defined( __TINYC__ )
+    #if defined( _WIN32 ) && defined( _DEBUG ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
         int result = _CrtDumpMemoryLeaks();
         testfw_internal_state.tests_failed += result ? 1 : 0;
     #endif
@@ -378,7 +381,7 @@ void testfw_test_end( char const* filename, char const* funcname, int line )
     }
 
 
-#if defined( _WIN32 ) && !defined( TESTFW_NO_SEH ) && !defined( __TINYC__ )
+#if defined( _WIN32 ) && !defined( TESTFW_NO_SEH ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
     #pragma warning( push )
     #pragma warning( disable: 4668 )
     #include <windows.h>
