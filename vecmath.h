@@ -182,6 +182,18 @@ itself relies on elements being tightly packed, but if your code does and you
 enable `VECMATH_EXT_VECTOR_TYPE`, be aware that tight packing of elements is no
 longer guaranteed (typically, vec2_t/vec3_t/vec4_t will all be 16 bytes in size).
 
+If you want vecmath.h to use your own types, you can override them to use
+your own equivalents by defining one or more of the following macros:
+
+`VECMATH_VEC2`, `VECMATH_VEC3`, `VECMATH_VEC4`, `VECMATH_MAT22`, `VECMATH_MAT23`,
+`VECMATH_MAT24`, `VECMATH_MAT32`, `VECMATH_MAT33`, `VECMATH_MAT34`, `VECMATH_MAT42`,
+`VECMATH_MAT43`, `VECMATH_MAT44`
+
+Your provided types must provide all the fields that vecmath expects. If using
+vecmath in an existing codebase, providing your own types will allow for
+vecmath functions to be used with your types such that there's no need to
+convert back and forth between your types and the vecmath types.
+
 For all of the types, both vector and matrices, there are a large number of 
 functions, operators and constructors defined, following a unified naming 
 convention and behavior.
@@ -955,25 +967,83 @@ if using clang (gcc and tcc use similar syntax).
 
 // types
 #if defined( VECMATH_EXT_VECTOR_TYPE ) && !defined( __cplusplus ) && defined(__clang__) && __clang_major__ >= 3
-	typedef float vec2_t __attribute__((ext_vector_type(2)));
-	typedef float vec3_t __attribute__((ext_vector_type(3)));
-	typedef float vec4_t __attribute__((ext_vector_type(4)));
+	#if !defined( VECMATH_VEC2 )
+		typedef float vec2_t __attribute__((ext_vector_type(2)));
+	#else
+		typedef VECMATH_VEC2 vec2_t;
+	#endif
+	#if !defined( VECMATH_VEC3 )
+		typedef float vec3_t __attribute__((ext_vector_type(3)));
+	#else
+		typedef VECMATH_VEC3 vec3_t;
+	#endif
+	#if !defined( VECMATH_VEC3 )
+		typedef float vec4_t __attribute__((ext_vector_type(4)));
+	#else
+		typedef VECMATH_VEC4 vec4_t;
+	#endif
 #else 
-	typedef struct vec2_t { float x, y; } vec2_t ;
-	typedef struct vec3_t { float x, y, z; } vec3_t;
-	typedef struct vec4_t { float x, y, z, w; } vec4_t;
+	#if !defined( VECMATH_VEC2 )
+		typedef struct vec2_t { float x, y; } vec2_t ;
+	#else
+		typedef VECMATH_VEC2 vec2_t;
+	#endif
+	#if !defined( VECMATH_VEC3 )
+		typedef struct vec3_t { float x, y, z; } vec3_t;
+	#else
+		typedef VECMATH_VEC3 vec3_t;
+	#endif
+	#if !defined( VECMATH_VEC4 )
+		typedef struct vec4_t { float x, y, z, w; } vec4_t;
+	#else
+		typedef VECMATH_VEC4 vec4_t;
+	#endif
 #endif
-typedef struct mat22_t { /* rows */ vec2_t x, y; } mat22_t;
-typedef struct mat23_t { /* rows */ vec3_t x, y; } mat23_t;
-typedef struct mat24_t { /* rows */ vec4_t x, y; } mat24_t;
-
-typedef struct mat32_t { /* rows */ vec2_t x, y, z; } mat32_t;
-typedef struct mat33_t { /* rows */ vec3_t x, y, z; } mat33_t;
-typedef struct mat34_t { /* rows */ vec4_t x, y, z; } mat34_t;
-
-typedef struct mat42_t { /* rows */ vec2_t x, y, z, w; } mat42_t;
-typedef struct mat43_t { /* rows */ vec3_t x, y, z, w; } mat43_t;
-typedef struct mat44_t { /* rows */ vec4_t x, y, z, w; } mat44_t;
+#if !defined( VECMATH_MAT22 )
+	typedef struct mat22_t { /* rows */ vec2_t x, y; } mat22_t;
+#else
+	typedef VECMATH_MAT22 mat22_t;
+#endif
+#if !defined( VECMATH_MAT23 )
+	typedef struct mat23_t { /* rows */ vec3_t x, y; } mat23_t;
+#else
+	typedef VECMATH_MAT23 mat23_t;
+#endif
+#if !defined( VECMATH_MAT24 )
+	typedef struct mat24_t { /* rows */ vec4_t x, y; } mat24_t;
+#else
+	typedef VECMATH_MAT24 mat24_t;
+#endif
+#if !defined( VECMATH_MAT32 )
+	typedef struct mat32_t { /* rows */ vec2_t x, y, z; } mat32_t;
+#else
+	typedef VECMATH_MAT32 mat32_t;
+#endif
+#if !defined( VECMATH_MAT33 )
+	typedef struct mat33_t { /* rows */ vec3_t x, y, z; } mat33_t;
+#else
+	typedef VECMATH_MAT33 mat33_t;
+#endif
+#if !defined( VECMATH_MAT34 )
+	typedef struct mat34_t { /* rows */ vec4_t x, y, z; } mat34_t;
+#else
+	typedef VECMATH_MAT34 mat34_t;
+#endif
+#if !defined( VECMATH_MAT42 )
+	typedef struct mat42_t { /* rows */ vec2_t x, y, z, w; } mat42_t;
+#else
+	typedef VECMATH_MAT42 mat42_t;
+#endif
+#if !defined( VECMATH_MAT43 )
+	typedef struct mat43_t { /* rows */ vec3_t x, y, z, w; } mat43_t;
+#else
+	typedef VECMATH_MAT43 mat43_t;
+#endif
+#if !defined( VECMATH_MAT44 )
+	typedef struct mat44_t { /* rows */ vec4_t x, y, z, w; } mat44_t;
+#else
+	typedef VECMATH_MAT44 mat44_t;
+#endif
 
 
 // math defines
