@@ -25,6 +25,7 @@ before you include this file in *one* C/C++ file to create the implementation.
 #define array_create( type ) ARRAY_CAST( (void*)internal_array_create( sizeof( type ), NULL ) )
 #define array_create_memctx( type, memctx ) ARRAY_CAST( (void*)internal_array_create( sizeof( type ), (memctx) ) )
 #define array_destroy( array ) internal_array_destroy( (struct internal_array_t*) (array) )
+#define array_clear( array ) internal_array_clear( (struct internal_array_t*) (array) )
 #define array_add( array, item ) ARRAY_CAST( internal_array_add( (struct internal_array_t*) (array), (void*) (item), (int)sizeof( *item ) ) )
 #define array_remove( array, index ) internal_array_remove( (struct internal_array_t*) (array), (index) )
 #define array_remove_ordered( array, index ) internal_array_remove_ordered( (struct internal_array_t*) (array), (index) )
@@ -71,6 +72,7 @@ struct internal_array_t;
 
 struct internal_array_t* internal_array_create( int item_size, void* memctx );
 void internal_array_destroy( struct internal_array_t* array );
+void internal_array_clear( struct internal_array_t* array );
 void* internal_array_add( struct internal_array_t* array, void* item, int item_size );
 void internal_array_remove( struct internal_array_t* array, int index );
 void internal_array_remove_ordered( struct internal_array_t* array, int index );
@@ -168,6 +170,11 @@ struct internal_array_t* internal_array_create( int item_size, void* memctx ) {
 void internal_array_destroy( struct internal_array_t* array ) {
     ARRAY_FREE( array->memctx, array->items );
     ARRAY_FREE( array->memctx, array );
+}
+
+
+void internal_array_clear( struct internal_array_t* array ) {
+    array->count = 0;
 }
 
 
