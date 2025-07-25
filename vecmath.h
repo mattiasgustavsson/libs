@@ -961,27 +961,34 @@ if using clang (gcc and tcc use similar syntax).
 	#define VECMATH_INLINE static inline
 #endif
 
+#define VECMATH_SIZEOF(x) sizeof(x)
+#define VECMATH_OFFSETOF(st, m) ((long long unsigned)&(((st *)0)->m))
+#define VECMATH_STATIC_ASSERT(condition, message) int VECMATH_STATIC_ASSERT(int VECMATH_STATIC_ASSERT[(condition) ? 1 : -1])
+
+struct vecmath_static_assert_test { float x; };
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(struct vecmath_static_assert_test) == 4, "vecmath static assert test 1");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(struct vecmath_static_assert_test, x) == 0, "vecmath static assert test 2");
+
 #ifdef __cplusplus
 	namespace vecmath {
 #endif
 
 // types
+#if defined( VECMATH_VEC2 ) || defined( VECMATH_VEC3 ) || defined( VECMATH_VEC4 ) || \
+	defined( VECMATH_MAT22 ) || defined( VECMATH_MAT23 ) || defined( VECMATH_MAT24 ) || \
+	defined( VECMATH_MAT32 ) || defined( VECMATH_MAT33 ) || defined( VECMATH_MAT34 ) || \
+	defined( VECMATH_MAT42 ) || defined( VECMATH_MAT43 ) || defined( VECMATH_MAT44 )
+
+	#if defined( VECMATH_EXT_VECTOR_TYPE )
+		#error "VECMATH_EXT_VECTOR_TYPE is incompatible with custom types. If you want to use clang vector extensions with your own types, you need to decorate your types with the necessary attributes."
+	#endif
+
+#endif
+
 #if defined( VECMATH_EXT_VECTOR_TYPE ) && !defined( __cplusplus ) && defined(__clang__) && __clang_major__ >= 3
-	#if !defined( VECMATH_VEC2 )
 		typedef float vec2_t __attribute__((ext_vector_type(2)));
-	#else
-		typedef VECMATH_VEC2 vec2_t;
-	#endif
-	#if !defined( VECMATH_VEC3 )
 		typedef float vec3_t __attribute__((ext_vector_type(3)));
-	#else
-		typedef VECMATH_VEC3 vec3_t;
-	#endif
-	#if !defined( VECMATH_VEC3 )
 		typedef float vec4_t __attribute__((ext_vector_type(4)));
-	#else
-		typedef VECMATH_VEC4 vec4_t;
-	#endif
 #else 
 	#if !defined( VECMATH_VEC2 )
 		typedef struct vec2_t { float x, y; } vec2_t ;
@@ -1045,6 +1052,76 @@ if using clang (gcc and tcc use similar syntax).
 	typedef VECMATH_MAT44 mat44_t;
 #endif
 
+/* The _get/_set (accessing by index) functions assume the x/y/z/w members are
+ * in that specific order, starts at the start of the struct, and that there's
+ * no padding. The following static assertions ensure all of this is true. */
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(vec2_t, x) == 0, "vecmath vec2_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(vec2_t, y) == 4, "vecmath vec2_t type member 'y' must be at offset 4");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(vec3_t, x) == 0, "vecmath vec3_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(vec3_t, y) == 4, "vecmath vec3_t type member 'y' must be at offset 4");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(vec3_t, z) == 8, "vecmath vec3_t type member 'z' must be at offset 8");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(vec4_t, x) == 0, "vecmath vec3_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(vec4_t, y) == 4, "vecmath vec3_t type member 'y' must be at offset 4");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(vec4_t, z) == 8, "vecmath vec3_t type member 'z' must be at offset 8");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(vec4_t, w) == 12, "vecmath vec4_t type member 'w' must be at offset 12");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat22_t, x) == 0, "vecmath mat22_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat22_t, y) == 8, "vecmath mat22_t type member 'y' must be at offset 8");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat23_t, x) == 0, "vecmath mat23_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat23_t, y) == 12, "vecmath mat23_t type member 'y' must be at offset 12");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat24_t, x) == 0, "vecmath mat24_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat24_t, y) == 16, "vecmath mat24_t type member 'y' must be at offset 16");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat32_t, x) == 0, "vecmath mat32_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat32_t, y) == 8, "vecmath mat32_t type member 'y' must be at offset 8");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat32_t, z) == 16, "vecmath mat32_t type member 'z' must be at offset 16");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat33_t, x) == 0, "vecmath mat33_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat33_t, y) == 12, "vecmath mat33_t type member 'y' must be at offset 12");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat33_t, z) == 24, "vecmath mat33_t type member 'z' must be at offset 24");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat34_t, x) == 0, "vecmath mat34_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat34_t, y) == 16, "vecmath mat34_t type member 'y' must be at offset 16");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat34_t, z) == 32, "vecmath mat34_t type member 'z' must be at offset 32");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat42_t, x) == 0, "vecmath mat42_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat42_t, y) == 8, "vecmath mat42_t type member 'y' must be at offset 8");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat42_t, z) == 16, "vecmath mat42_t type member 'z' must be at offset 16");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat42_t, w) == 24, "vecmath mat42_t type member 'w' must be at offset 24");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat43_t, x) == 0, "vecmath mat43_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat43_t, y) == 12, "vecmath mat43_t type member 'y' must be at offset 12");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat43_t, z) == 24, "vecmath mat43_t type member 'z' must be at offset 24");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat43_t, w) == 36, "vecmath mat43_t type member 'w' must be at offset 36");
+
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat44_t, x) == 0, "vecmath mat44_t type member 'x' must be at offset 0");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat44_t, y) == 16, "vecmath mat44_t type member 'y' must be at offset 16");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat44_t, z) == 32, "vecmath mat44_t type member 'z' must be at offset 32");
+VECMATH_STATIC_ASSERT(VECMATH_OFFSETOF(mat44_t, w) == 48, "vecmath mat44_t type member 'w' must be at offset 48");
+
+/* Further, some tests assume the exact binary representation of the types. If
+ * the types had trailing elements after the required ones, like debug tags or
+ * whatever, those would be lost when new values are returned. The following
+ * static assertions ensure there is no hidden data in the structs which could
+ * interfere with tests. */
+
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(vec2_t) == 8, "vecmath vec2_t type must be 8 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(vec3_t) == 12, "vecmath vec3_t type must be 12 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(vec4_t) == 16, "vecmath vec4_t type must be 16 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(mat22_t) == 16, "vecmath mat22_t type must be 16 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(mat23_t) == 24, "vecmath mat23_t type must be 24 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(mat24_t) == 32, "vecmath mat24_t type must be 32 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(mat32_t) == 24, "vecmath mat32_t type must be 24 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(mat33_t) == 36, "vecmath mat33_t type must be 36 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(mat34_t) == 48, "vecmath mat34_t type must be 48 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(mat42_t) == 32, "vecmath mat42_t type must be 32 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(mat43_t) == 48, "vecmath mat43_t type must be 48 bytes big exactly");
+VECMATH_STATIC_ASSERT(VECMATH_SIZEOF(mat44_t) == 64, "vecmath mat44_t type must be 64 bytes big exactly");
 
 // math defines
 
