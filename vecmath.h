@@ -1094,11 +1094,11 @@ typedef struct mat44_t { /* rows */ vec4_t x, y, z, w; } mat44_t;
 	#endif
 #endif
 #if !defined( VECMATH_FRAC ) 
-    #ifndef __TINYC__
+	#ifndef __TINYC__
 		VECMATH_INLINE float internal_vecmath_frac( float v ) { float t; return (float)( fabsf( modff( v, &t ) ) ); }
-    #else
-        VECMATH_INLINE float internal_vecmath_frac( float v ) { double t; return (float)( fabs( modf( v, &t ) ) ); }
-    #endif
+	#else
+		VECMATH_INLINE float internal_vecmath_frac( float v ) { double t; return (float)( fabs( modf( v, &t ) ) ); }
+	#endif
 	#define VECMATH_FRAC( v ) internal_vecmath_frac( v )
 #endif
 #if !defined( VECMATH_LOG ) 
@@ -1203,8 +1203,8 @@ typedef struct mat44_t { /* rows */ vec4_t x, y, z, w; } mat44_t;
 // functions
 VECMATH_INLINE float vecmath_abs( float v ) { return VECMATH_ABS( v ); }
 VECMATH_INLINE float vecmath_acos( float v ) { return VECMATH_ACOS( v ); }
-VECMATH_INLINE int vecmath_all( float v ) {	return v != 0.0f; }
-VECMATH_INLINE int vecmath_any( float v ) {	return v != 0.0f; }
+VECMATH_INLINE int vecmath_all( float v ) { return v != 0.0f; }
+VECMATH_INLINE int vecmath_any( float v ) { return v != 0.0f; }
 VECMATH_INLINE float vecmath_asin( float v ) { return VECMATH_ASIN( v ); }
 VECMATH_INLINE float vecmath_atan( float v ) { return VECMATH_ATAN( v ); }
 VECMATH_INLINE float vecmath_atan2( float y, float x ) { return VECMATH_ATAN2( y, x ); }
@@ -3685,65 +3685,65 @@ VECMATH_INLINE vec4_t vec4_wwww( vec4_t v ) { return vec4( v.w, v.w, v.w, v.w );
 
 
 	// c++ operators for matrix multiplication 
-    VECMATH_INLINE vec2_t operator*( vec2_t a, mat22_t b ) { return vec2_mul_mat22( a, b ); }
-    VECMATH_INLINE vec3_t operator*( vec2_t a, mat23_t b ) { return vec2_mul_mat23( a, b ); }
-    VECMATH_INLINE vec4_t operator*( vec2_t a, mat24_t b ) { return vec2_mul_mat24( a, b ); }
-    VECMATH_INLINE vec2_t operator*( vec3_t a, mat32_t b ) { return vec3_mul_mat32( a, b ); }
-    VECMATH_INLINE vec3_t operator*( vec3_t a, mat33_t b ) { return vec3_mul_mat33( a, b ); }
-    VECMATH_INLINE vec4_t operator*( vec3_t a, mat34_t b ) { return vec3_mul_mat34( a, b ); }
-    VECMATH_INLINE vec2_t operator*( vec4_t a, mat42_t b ) { return vec4_mul_mat42( a, b ); }
-    VECMATH_INLINE vec3_t operator*( vec4_t a, mat43_t b ) { return vec4_mul_mat43( a, b ); }
-    VECMATH_INLINE vec4_t operator*( vec4_t a, mat44_t b ) { return vec4_mul_mat44( a, b ); }
+	VECMATH_INLINE vec2_t operator*( vec2_t a, mat22_t b ) { return vec2_mul_mat22( a, b ); }
+	VECMATH_INLINE vec3_t operator*( vec2_t a, mat23_t b ) { return vec2_mul_mat23( a, b ); }
+	VECMATH_INLINE vec4_t operator*( vec2_t a, mat24_t b ) { return vec2_mul_mat24( a, b ); }
+	VECMATH_INLINE vec2_t operator*( vec3_t a, mat32_t b ) { return vec3_mul_mat32( a, b ); }
+	VECMATH_INLINE vec3_t operator*( vec3_t a, mat33_t b ) { return vec3_mul_mat33( a, b ); }
+	VECMATH_INLINE vec4_t operator*( vec3_t a, mat34_t b ) { return vec3_mul_mat34( a, b ); }
+	VECMATH_INLINE vec2_t operator*( vec4_t a, mat42_t b ) { return vec4_mul_mat42( a, b ); }
+	VECMATH_INLINE vec3_t operator*( vec4_t a, mat43_t b ) { return vec4_mul_mat43( a, b ); }
+	VECMATH_INLINE vec4_t operator*( vec4_t a, mat44_t b ) { return vec4_mul_mat44( a, b ); }
 
 	VECMATH_INLINE vec2_t operator*( mat22_t a, vec2_t b ) { return mat22_mul_vec2( a, b ); }
-    VECMATH_INLINE vec3_t operator*( mat32_t a, vec2_t b ) { return mat32_mul_vec2( a, b ); }
-    VECMATH_INLINE vec4_t operator*( mat42_t a, vec2_t b ) { return mat42_mul_vec2( a, b ); }
-    VECMATH_INLINE vec2_t operator*( mat23_t a, vec3_t b ) { return mat23_mul_vec3( a, b ); }
-    VECMATH_INLINE vec3_t operator*( mat33_t a, vec3_t b ) { return mat33_mul_vec3( a, b ); }
-    VECMATH_INLINE vec4_t operator*( mat43_t a, vec3_t b ) { return mat43_mul_vec3( a, b ); }
-    VECMATH_INLINE vec2_t operator*( mat24_t a, vec4_t b ) { return mat24_mul_vec4( a, b ); }
-    VECMATH_INLINE vec3_t operator*( mat34_t a, vec4_t b ) { return mat34_mul_vec4( a, b ); }
-    VECMATH_INLINE vec4_t operator*( mat44_t a, vec4_t b ) { return mat44_mul_vec4( a, b ); }
-    
+	VECMATH_INLINE vec3_t operator*( mat32_t a, vec2_t b ) { return mat32_mul_vec2( a, b ); }
+	VECMATH_INLINE vec4_t operator*( mat42_t a, vec2_t b ) { return mat42_mul_vec2( a, b ); }
+	VECMATH_INLINE vec2_t operator*( mat23_t a, vec3_t b ) { return mat23_mul_vec3( a, b ); }
+	VECMATH_INLINE vec3_t operator*( mat33_t a, vec3_t b ) { return mat33_mul_vec3( a, b ); }
+	VECMATH_INLINE vec4_t operator*( mat43_t a, vec3_t b ) { return mat43_mul_vec3( a, b ); }
+	VECMATH_INLINE vec2_t operator*( mat24_t a, vec4_t b ) { return mat24_mul_vec4( a, b ); }
+	VECMATH_INLINE vec3_t operator*( mat34_t a, vec4_t b ) { return mat34_mul_vec4( a, b ); }
+	VECMATH_INLINE vec4_t operator*( mat44_t a, vec4_t b ) { return mat44_mul_vec4( a, b ); }
+
 	VECMATH_INLINE mat22_t operator*( mat22_t a, mat22_t b ) { return mat22_mul_mat22( a, b ); }
-    VECMATH_INLINE mat23_t operator*( mat22_t a, mat23_t b ) { return mat22_mul_mat23( a, b ); }
-    VECMATH_INLINE mat24_t operator*( mat22_t a, mat24_t b ) { return mat22_mul_mat24( a, b ); }
-    VECMATH_INLINE mat22_t operator*( mat23_t a, mat32_t b ) { return mat23_mul_mat32( a, b ); }
-    VECMATH_INLINE mat23_t operator*( mat23_t a, mat33_t b ) { return mat23_mul_mat33( a, b ); }
-    VECMATH_INLINE mat24_t operator*( mat23_t a, mat34_t b ) { return mat23_mul_mat34( a, b ); }
-    VECMATH_INLINE mat22_t operator*( mat24_t a, mat42_t b ) { return mat24_mul_mat42( a, b ); }
-    VECMATH_INLINE mat23_t operator*( mat24_t a, mat43_t b ) { return mat24_mul_mat43( a, b ); }
-    VECMATH_INLINE mat24_t operator*( mat24_t a, mat44_t b ) { return mat24_mul_mat44( a, b ); }
-    
+	VECMATH_INLINE mat23_t operator*( mat22_t a, mat23_t b ) { return mat22_mul_mat23( a, b ); }
+	VECMATH_INLINE mat24_t operator*( mat22_t a, mat24_t b ) { return mat22_mul_mat24( a, b ); }
+	VECMATH_INLINE mat22_t operator*( mat23_t a, mat32_t b ) { return mat23_mul_mat32( a, b ); }
+	VECMATH_INLINE mat23_t operator*( mat23_t a, mat33_t b ) { return mat23_mul_mat33( a, b ); }
+	VECMATH_INLINE mat24_t operator*( mat23_t a, mat34_t b ) { return mat23_mul_mat34( a, b ); }
+	VECMATH_INLINE mat22_t operator*( mat24_t a, mat42_t b ) { return mat24_mul_mat42( a, b ); }
+	VECMATH_INLINE mat23_t operator*( mat24_t a, mat43_t b ) { return mat24_mul_mat43( a, b ); }
+	VECMATH_INLINE mat24_t operator*( mat24_t a, mat44_t b ) { return mat24_mul_mat44( a, b ); }
+
 	VECMATH_INLINE mat32_t operator*( mat32_t a, mat22_t b ) { return mat32_mul_mat22( a, b ); }
-    VECMATH_INLINE mat33_t operator*( mat32_t a, mat23_t b ) { return mat32_mul_mat23( a, b ); }
-    VECMATH_INLINE mat34_t operator*( mat32_t a, mat24_t b ) { return mat32_mul_mat24( a, b ); }
-    VECMATH_INLINE mat32_t operator*( mat33_t a, mat32_t b ) { return mat33_mul_mat32( a, b ); }
-    VECMATH_INLINE mat33_t operator*( mat33_t a, mat33_t b ) { return mat33_mul_mat33( a, b ); }
-    VECMATH_INLINE mat34_t operator*( mat33_t a, mat34_t b ) { return mat33_mul_mat34( a, b ); }
-    VECMATH_INLINE mat32_t operator*( mat34_t a, mat42_t b ) { return mat34_mul_mat42( a, b ); }
-    VECMATH_INLINE mat33_t operator*( mat34_t a, mat43_t b ) { return mat34_mul_mat43( a, b ); }
-    VECMATH_INLINE mat34_t operator*( mat34_t a, mat44_t b ) { return mat34_mul_mat44( a, b ); }
-    
+	VECMATH_INLINE mat33_t operator*( mat32_t a, mat23_t b ) { return mat32_mul_mat23( a, b ); }
+	VECMATH_INLINE mat34_t operator*( mat32_t a, mat24_t b ) { return mat32_mul_mat24( a, b ); }
+	VECMATH_INLINE mat32_t operator*( mat33_t a, mat32_t b ) { return mat33_mul_mat32( a, b ); }
+	VECMATH_INLINE mat33_t operator*( mat33_t a, mat33_t b ) { return mat33_mul_mat33( a, b ); }
+	VECMATH_INLINE mat34_t operator*( mat33_t a, mat34_t b ) { return mat33_mul_mat34( a, b ); }
+	VECMATH_INLINE mat32_t operator*( mat34_t a, mat42_t b ) { return mat34_mul_mat42( a, b ); }
+	VECMATH_INLINE mat33_t operator*( mat34_t a, mat43_t b ) { return mat34_mul_mat43( a, b ); }
+	VECMATH_INLINE mat34_t operator*( mat34_t a, mat44_t b ) { return mat34_mul_mat44( a, b ); }
+
 	VECMATH_INLINE mat42_t operator*( mat42_t a, mat22_t b ) { return mat42_mul_mat22( a, b ); }
-    VECMATH_INLINE mat43_t operator*( mat42_t a, mat23_t b ) { return mat42_mul_mat23( a, b ); }
-    VECMATH_INLINE mat44_t operator*( mat42_t a, mat24_t b ) { return mat42_mul_mat24( a, b ); }
-    VECMATH_INLINE mat42_t operator*( mat43_t a, mat32_t b ) { return mat43_mul_mat32( a, b ); }
-    VECMATH_INLINE mat43_t operator*( mat43_t a, mat33_t b ) { return mat43_mul_mat33( a, b ); }
-    
+	VECMATH_INLINE mat43_t operator*( mat42_t a, mat23_t b ) { return mat42_mul_mat23( a, b ); }
+	VECMATH_INLINE mat44_t operator*( mat42_t a, mat24_t b ) { return mat42_mul_mat24( a, b ); }
+	VECMATH_INLINE mat42_t operator*( mat43_t a, mat32_t b ) { return mat43_mul_mat32( a, b ); }
+	VECMATH_INLINE mat43_t operator*( mat43_t a, mat33_t b ) { return mat43_mul_mat33( a, b ); }
+
 	VECMATH_INLINE mat44_t operator*( mat43_t a, mat34_t b ) { return mat43_mul_mat34( a, b ); }
-    VECMATH_INLINE mat42_t operator*( mat44_t a, mat42_t b ) { return mat44_mul_mat42( a, b ); }
-    VECMATH_INLINE mat43_t operator*( mat44_t a, mat43_t b ) { return mat44_mul_mat43( a, b ); }
-    VECMATH_INLINE mat44_t operator*( mat44_t a, mat44_t b ) { return mat44_mul_mat44( a, b ); }
+	VECMATH_INLINE mat42_t operator*( mat44_t a, mat42_t b ) { return mat44_mul_mat42( a, b ); }
+	VECMATH_INLINE mat43_t operator*( mat44_t a, mat43_t b ) { return mat44_mul_mat43( a, b ); }
+	VECMATH_INLINE mat44_t operator*( mat44_t a, mat44_t b ) { return mat44_mul_mat44( a, b ); }
 
 	VECMATH_INLINE mat22_t& operator*=(mat22_t &a, mat22_t b) { a = mat22_mul_mat22(a, b); return a; }
 	VECMATH_INLINE mat23_t& operator*=(mat23_t &a, mat33_t b) { a = mat23_mul_mat33(a, b); return a; }
 	VECMATH_INLINE mat24_t& operator*=(mat24_t &a, mat44_t b) { a = mat24_mul_mat44(a, b); return a; }
-	
+
 	VECMATH_INLINE mat32_t& operator*=(mat32_t &a, mat22_t b) { a = mat32_mul_mat22(a, b); return a; }
 	VECMATH_INLINE mat33_t& operator*=(mat33_t &a, mat33_t b) { a = mat33_mul_mat33(a, b); return a; }
 	VECMATH_INLINE mat34_t& operator*=(mat34_t &a, mat44_t b) { a = mat34_mul_mat44(a, b); return a; }
-	
+
 	VECMATH_INLINE mat42_t& operator*=(mat42_t &a, mat22_t b) { a = mat42_mul_mat22(a, b); return a; }
 	VECMATH_INLINE mat43_t& operator*=(mat43_t &a, mat33_t b) { a = mat43_mul_mat33(a, b); return a; }
 	VECMATH_INLINE mat44_t& operator*=(mat44_t &a, mat44_t b) { a = mat44_mul_mat44(a, b); return a; }
@@ -4127,24 +4127,24 @@ You can find testfw.h here:
 int test_cmp( float a, float b ) { return a > b - 0.00001f && a < b + 0.00001f; }
 
 int test_identity_mat22( mat22_t m ) {
-    return
-        test_cmp( m.x.x, 1.0f ) && test_cmp( m.x.y, 0.0f ) &&
-        test_cmp( m.y.x, 0.0f ) && test_cmp( m.y.y, 1.0f );
+	return
+	test_cmp( m.x.x, 1.0f ) && test_cmp( m.x.y, 0.0f ) &&
+	test_cmp( m.y.x, 0.0f ) && test_cmp( m.y.y, 1.0f );
 }
 
 int test_identity_mat33( mat33_t m ) {
-    return
-        test_cmp( m.x.x, 1.0f ) && test_cmp( m.x.y, 0.0f ) && test_cmp( m.x.z, 0.0f ) &&
-        test_cmp( m.y.x, 0.0f ) && test_cmp( m.y.y, 1.0f ) && test_cmp( m.y.z, 0.0f ) &&
-        test_cmp( m.z.x, 0.0f ) && test_cmp( m.z.y, 0.0f ) && test_cmp( m.z.z, 1.0f );
+	return
+	test_cmp( m.x.x, 1.0f ) && test_cmp( m.x.y, 0.0f ) && test_cmp( m.x.z, 0.0f ) &&
+	test_cmp( m.y.x, 0.0f ) && test_cmp( m.y.y, 1.0f ) && test_cmp( m.y.z, 0.0f ) &&
+	test_cmp( m.z.x, 0.0f ) && test_cmp( m.z.y, 0.0f ) && test_cmp( m.z.z, 1.0f );
 }
 
 int test_identity_mat44( mat44_t m ) {
-    return
-        ( m.x.x > 1.0f - 0.0001f && m.x.x < 1.0f + 0.0001f ) && ( m.x.y > -0.0001f && m.x.y < 0.0001f ) && ( m.x.z > -0.0001f && m.x.z < 0.0001f ) && ( m.x.w > -0.0001f && m.x.w < 0.0001f ) &&
-        ( m.y.x > -0.0001f && m.y.x < 0.0001f ) && ( m.y.y > 1.0f - 0.0001f && m.y.y < 1.0f + 0.0001f ) && ( m.y.z > -0.0001f && m.y.z < 0.0001f ) && ( m.y.w > -0.0001f && m.y.w < 0.0001f ) &&
-        ( m.z.x > -0.0001f && m.z.x < 0.0001f ) && ( m.z.y > -0.0001f && m.z.y < 0.0001f ) && ( m.z.z > 1.0f - 0.0001f && m.z.z < 1.0f + 0.0001f ) && ( m.z.w > -0.0001f && m.z.w < 0.0001f ) &&
-        ( m.w.x > -0.0001f && m.w.x < 0.0001f ) && ( m.w.y > -0.0001f && m.w.y < 0.0001f ) && ( m.w.z > -0.0001f && m.w.z < 0.0001f ) && ( m.w.w > 1.0f - 0.0001f && m.w.w < 1.0f + 0.0001f );
+	return
+	( m.x.x > 1.0f - 0.0001f && m.x.x < 1.0f + 0.0001f ) && ( m.x.y > -0.0001f && m.x.y < 0.0001f ) && ( m.x.z > -0.0001f && m.x.z < 0.0001f ) && ( m.x.w > -0.0001f && m.x.w < 0.0001f ) &&
+	( m.y.x > -0.0001f && m.y.x < 0.0001f ) && ( m.y.y > 1.0f - 0.0001f && m.y.y < 1.0f + 0.0001f ) && ( m.y.z > -0.0001f && m.y.z < 0.0001f ) && ( m.y.w > -0.0001f && m.y.w < 0.0001f ) &&
+	( m.z.x > -0.0001f && m.z.x < 0.0001f ) && ( m.z.y > -0.0001f && m.z.y < 0.0001f ) && ( m.z.z > 1.0f - 0.0001f && m.z.z < 1.0f + 0.0001f ) && ( m.z.w > -0.0001f && m.z.w < 0.0001f ) &&
+	( m.w.x > -0.0001f && m.w.x < 0.0001f ) && ( m.w.y > -0.0001f && m.w.y < 0.0001f ) && ( m.w.z > -0.0001f && m.w.z < 0.0001f ) && ( m.w.w > 1.0f - 0.0001f && m.w.w < 1.0f + 0.0001f );
 }
 
 
@@ -17799,7 +17799,7 @@ void test_swizzling_vec4( void ) {
 		TESTFW_EXPECTED( vec3_eq( vec4_wwy( vec4( 1, 2, 3, 4 ) ), vec3( 4, 4, 2 ) ) );
 		TESTFW_EXPECTED( vec3_eq( vec4_wwz( vec4( 1, 2, 3, 4 ) ), vec3( 4, 4, 3 ) ) );
 		TESTFW_EXPECTED( vec3_eq( vec4_www( vec4( 1, 2, 3, 4 ) ), vec3( 4, 4, 4 ) ) );
-    TESTFW_TEST_END();
+	TESTFW_TEST_END();
 
 
 	// vec4 swizzling from vec4
@@ -19365,14 +19365,14 @@ void test_cpp_operators( void ) {
 
 #pragma warning( push )  
 	#pragma warning( disable: 4201 ) // nonstandard extension used: nameless struct/union
-    #pragma warning( disable: 4255 ) // no function prototype given: converting '()' to '(void)'
-    #pragma warning( disable: 4668 ) // not defined as a preprocessor macro, replacing with '0' for '#if/#elif'
-    #pragma warning( disable: 4820 ) // '4' bytes padding added after data member
-    #pragma warning( disable: 5105 ) // macro expansion producing 'defined' has undefined behavior
-    #pragma warning( disable: 5029 ) // nonstandard extension used: alignment attributes in C++ apply to variables, data members and tag types only
-    #pragma warning( disable: 5267 ) // definition of implicit assignment operator for 'D3DXFLOAT16' is deprecated because it has a user-provided copy constructor
-    #include <d3dx9.h>
-    #pragma comment( lib, "d3dx9.lib" )
+	#pragma warning( disable: 4255 ) // no function prototype given: converting '()' to '(void)'
+	#pragma warning( disable: 4668 ) // not defined as a preprocessor macro, replacing with '0' for '#if/#elif'
+	#pragma warning( disable: 4820 ) // '4' bytes padding added after data member
+	#pragma warning( disable: 5105 ) // macro expansion producing 'defined' has undefined behavior
+	#pragma warning( disable: 5029 ) // nonstandard extension used: alignment attributes in C++ apply to variables, data members and tag types only
+	#pragma warning( disable: 5267 ) // definition of implicit assignment operator for 'D3DXFLOAT16' is deprecated because it has a user-provided copy constructor
+	#include <d3dx9.h>
+	#pragma comment( lib, "d3dx9.lib" )
 #pragma warning( pop ) 
 
 void test_d3d_compliance( void ) {
@@ -20573,7 +20573,7 @@ void test_d3d_compliance( void ) {
 
 
 int main( int argc, char** argv ) {
-    (void) argc, (void) argv;
+	(void) argc, (void) argv;
 	TESTFW_INIT();
 
 	test_scalar_math();
