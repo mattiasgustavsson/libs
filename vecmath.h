@@ -226,11 +226,11 @@ of matrices, to every column of every row.
 	mat22_t mat22f( float v )
 	mat23_t mat23f( float v )
 	mat24_t mat24f( float v )
-			
+
 	mat32_t mat32f( float v )
 	mat33_t mat33f( float v )
 	mat34_t mat34f( float v )
-			
+
 	mat42_t mat42f( float v )
 	mat43_t mat43f( float v )
 	mat44_t mat44f( float v )
@@ -693,7 +693,7 @@ These all work the same as in DirectX (and most 3d math libraries).
 
 There's also a function to decompose a transformation matrix into separate scale,
 rotation and translation components:
-	
+
 	int mat44_decompose( vec3_t* out_scale, vec4_t* out_rotation, vec3_t* out_translation, mat44_t m ) 
 
 Again, this works just like in D3DX, and returns a non-zero value if the matrix
@@ -729,7 +729,7 @@ variations):
 	vec2_t vec2_xy( vec2_t v )
 	vec2_t vec2_yx( vec2_t v )
 	vec2_t vec2_yy( vec2_t v )
-	
+
 	vec2_t vec3_xx( vec3_t v )
 	vec2_t vec3_xy( vec3_t v )
 	vec2_t vec3_xz( vec3_t v )
@@ -739,7 +739,7 @@ variations):
 	vec2_t vec3_zx( vec3_t v )
 	vec2_t vec3_zy( vec3_t v )
 	vec2_t vec3_zz( vec3_t v )
-	
+
 	vec2_t vec4_xx( vec4_t v )
 	vec2_t vec4_xy( vec4_t v )
 	vec2_t vec4_xz( vec4_t v )
@@ -1001,7 +1001,7 @@ typedef struct mat44_t { /* rows */ vec4_t x, y, z, w; } mat44_t;
 	#endif
 
 	#include <math.h>
-	
+
 	#ifdef __cplusplus
 		namespace vecmath {
 	#endif
@@ -1302,10 +1302,10 @@ VECMATH_INLINE float vecmath_fdiv( float a, float b ) { return a / b; }
 	VECMATH_INLINE vec2_t vec2( float x, float y ) { vec2_t vec; vec.x = x; vec.y = y; return vec; }
 #endif
 VECMATH_INLINE vec2_t vec2f( float v ) { vec2_t vec; vec.x = v; vec.y = v; return vec; }
-	
+
 VECMATH_INLINE float vec2_get( vec2_t vec, int index ) { return ( (float*) &vec )[ index ]; }
 VECMATH_INLINE void vec2_set( vec2_t* vec, int index, float f ) { ( (float*) vec )[ index ] = f; }
-	
+
 // operators
 VECMATH_INLINE vec2_t vec2_neg( vec2_t v ) { return vec2( -v.x, -v.y ); }
 VECMATH_INLINE int vec2_eq( vec2_t a, vec2_t b ) { return a.x == b.x && a.y == b.y; }
@@ -1511,7 +1511,7 @@ VECMATH_INLINE vec2_t vec2_trunc( vec2_t v ) { return vec2( vecmath_trunc( v.x )
 VECMATH_INLINE vec3_t vec3f( float v ) { vec3_t vec; vec.x = v; vec.y = v; vec.z = v; return vec; }
 VECMATH_INLINE vec3_t vec3v2f( vec2_t v, float f ) { vec3_t vec; vec.x = v.x; vec.y = v.y; vec.z = f; return vec; }
 VECMATH_INLINE vec3_t vec3fv2( float f, vec2_t v ) { vec3_t vec; vec.x = f; vec.y = v.x; vec.z = v.y; return vec; }
-	
+
 VECMATH_INLINE float vec3_get( vec3_t vec, int index ) { return ( (float*) &vec )[ index ]; }
 VECMATH_INLINE void vec3_set( vec3_t* vec, int index, float f ) { ( (float*) vec )[ index ] = f; }
 
@@ -1941,7 +1941,7 @@ VECMATH_INLINE vec4_t vec4f( float v ) { vec4_t vec; vec.x = v; vec.y = v; vec.z
 VECMATH_INLINE vec4_t vec4v3f( vec3_t v, float f ) { vec4_t vec; vec.x = v.x; vec.y = v.y; vec.z = v.z; vec.w = f; return vec; }
 VECMATH_INLINE vec4_t vec4fv3( float f, vec3_t v ) { vec4_t vec; vec.x = f; vec.y = v.x; vec.z = v.y; vec.w = v.z; return vec; }
 VECMATH_INLINE vec4_t vec4v2( vec2_t a, vec2_t b ) { vec4_t vec; vec.x = a.x; vec.y = a.y; vec.z = b.x; vec.w = b.y; return vec; }
-	
+
 VECMATH_INLINE float vec4_get( vec4_t vec, int index ) { return ( (float*) &vec )[ index ]; }
 VECMATH_INLINE void vec4_set( vec4_t* vec, int index, float f ) { ( (float*) vec )[ index ] = f; }
 
@@ -2633,7 +2633,7 @@ VECMATH_INLINE mat43_t mat43_trunc( mat43_t m ) { return mat43( vec3_trunc( m.x 
 	VECMATH_INLINE mat44_t mat44( vec4_t x, vec4_t y, vec4_t z, vec4_t w ) { mat44_t m; m.x = x; m.y = y; m.z = z; m.w = w; return m; }
 #endif
 VECMATH_INLINE mat44_t mat44f( float v ) { mat44_t m; m.x = vec4f( v ); m.y = vec4f( v ); m.z = vec4f( v ); m.w = vec4f( v ); return m; }
-	
+
 VECMATH_INLINE vec4_t mat44_get( mat44_t m, int row ) { return ( (vec4_t*) &m )[ row ]; }
 VECMATH_INLINE void mat44_set( mat44_t* m, int row, vec4_t v ) { ( (vec4_t*) m )[ row ] = v; }
 
@@ -4069,7 +4069,7 @@ VECMATH_INLINE vec4_t vec4_wwww( vec4_t v ) { return vec4( v.w, v.w, v.w, v.w );
 -------------
 
 To build and run the test suite, compile it like this:
-	
+
 	cl /Tc vecmath.h /DVECMATH_RUN_TESTS
 
 and then simply run this from the commandline: 
@@ -4173,7 +4173,7 @@ void test_scalar_math( void ) {
 	TESTFW_TEST_BEGIN( "vecmath_abs propagates NaN" )
 		TESTFW_EXPECTED( isnan( vecmath_abs( NAN ) ) );
 	TESTFW_TEST_END();
-	
+
 	// vecmath_acos
 	TESTFW_TEST_BEGIN( "vecmath_acos returns correct values for canonical inputs" )
 		TESTFW_EXPECTED( vecmath_acos( 1.0f ) == 0.0f );
@@ -4207,7 +4207,7 @@ void test_scalar_math( void ) {
 		TESTFW_EXPECTED( vecmath_all( -1e-30f ) != 0 );
 		TESTFW_EXPECTED( vecmath_all( 1.0f ) != 0 );
 		TESTFW_EXPECTED( vecmath_all( -1.0f ) != 0 );
-	
+
 		TESTFW_EXPECTED( vecmath_all( NAN ) != 0 );
 		TESTFW_EXPECTED( vecmath_all( INFINITY ) != 0 );
 		TESTFW_EXPECTED( vecmath_all( -INFINITY ) != 0 );
@@ -4221,7 +4221,7 @@ void test_scalar_math( void ) {
 		TESTFW_EXPECTED( vecmath_any( -1e-30f ) != 0 );
 		TESTFW_EXPECTED( vecmath_any( 1.0f ) != 0 );
 		TESTFW_EXPECTED( vecmath_any( -1.0f ) != 0 );
-		
+
 		TESTFW_EXPECTED( vecmath_any( NAN ) != 0 );
 		TESTFW_EXPECTED( vecmath_any( INFINITY ) != 0 );
 		TESTFW_EXPECTED( vecmath_any( -INFINITY ) != 0 );
@@ -4356,7 +4356,7 @@ void test_scalar_math( void ) {
 		TESTFW_EXPECTED( vecmath_clamp( -15.0f, -10.0f, -1.0f ) == -10.0f );
 		TESTFW_EXPECTED( vecmath_clamp( 0.0f, -10.0f, -1.0f ) == -1.0f );
 	TESTFW_TEST_END();
-		
+
 	TESTFW_TEST_BEGIN( "vecmath_clamp handles very large and very small values" )
 		TESTFW_EXPECTED( vecmath_clamp( -1e30f, 0.0f, 1e30f ) == 0.0f );
 		TESTFW_EXPECTED( vecmath_clamp( 1e30f, 0.0f, 1e30f ) == 1e30f );
@@ -4819,7 +4819,7 @@ void test_scalar_math( void ) {
 		TESTFW_EXPECTED( vecmath_max( 1.0f, INFINITY ) == INFINITY );
 		TESTFW_EXPECTED( vecmath_max( 1.0f, -INFINITY ) == 1.0f );
 	TESTFW_TEST_END();
-	
+
 	// vecmath_min
 	TESTFW_TEST_BEGIN( "vecmath_min returns lesser of two values" )
 		TESTFW_EXPECTED( vecmath_min( 1.0f, 2.0f ) == 1.0f );
@@ -15374,7 +15374,7 @@ void test_matrix_multiplications( void ) {
 		TESTFW_EXPECTED(r.y == 1532.0f);
 		TESTFW_EXPECTED(r.z == 2450.0f);
 	TESTFW_TEST_END();
-	
+
 	// mat43_mul_vec3
 	TESTFW_TEST_BEGIN("mat43_mul_vec3 performs correct matrix-vector multiplication")
 		mat43_t m = mat43(
@@ -16126,7 +16126,7 @@ void test_quaternions( void ) {
 		TESTFW_EXPECTED(test_cmp(r.z, expected.z));
 		TESTFW_EXPECTED(test_cmp(r.w, expected.w));
 	TESTFW_TEST_END();
-	
+
 	// quat_slerp
 	TESTFW_TEST_BEGIN("quat_slerp returns a when t=0")
 		vec4_t a = vec4(0, 0, 0, 1);
@@ -16472,7 +16472,7 @@ void test_quaternions( void ) {
 		TESTFW_EXPECTED( test_cmp(r.z, 0.0f)  );
 		TESTFW_EXPECTED( test_cmp(r.w, 0.923879533f) );
 	TESTFW_TEST_END();
-	
+
 	TESTFW_TEST_BEGIN("quat_squad midpoint from -90 to +90 degrees yields [-0.7071, 0.7071]")
 		vec4_t q0 = quat_rotation_axis( vec3(1, 0, 0), -3.1415926f );
 		vec4_t q1 = quat_rotation_axis( vec3(1, 0, 0), -1.5707963f );
@@ -16630,7 +16630,7 @@ void test_quaternions( void ) {
 		TESTFW_EXPECTED(test_cmp(q.z,0.0f) );
 		TESTFW_EXPECTED(test_cmp(q.w,1.0f) );
 	TESTFW_TEST_END();
-	
+
 	TESTFW_TEST_BEGIN("quat_shortest_arc returns 180 degree rotation for opposite vectors")
 		vec3_t from = vec3(1, 0, 0);
 		vec3_t to = vec3(-1, 0, 0);
@@ -19505,7 +19505,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixOrthoOffCenterLH( &d3d, -1.0f, 1.0f, -1.0f, 1.0f, 0.001f, 1.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_ortho_off_center_rh
 	TESTFW_TEST_BEGIN( "mat44_ortho_off_center_rh matches D3DXMatrixOrthoOffCenterRH" )
 		mat44_t m = mat44_ortho_off_center_rh( -2.0f, 2.0f, -1.5f, 1.5f, 0.1f, 100.0f );
@@ -19524,7 +19524,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixOrthoOffCenterRH( &d3d, -1.0f, 1.0f, -1.0f, 1.0f, 0.001f, 1.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_perspective_lh
 	TESTFW_TEST_BEGIN( "mat44_perspective_lh matches D3DXMatrixPerspectiveLH" )
 		mat44_t m = mat44_perspective_lh( 4.0f, 3.0f, 0.1f, 100.0f );
@@ -19543,7 +19543,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixPerspectiveLH( &d3d, 2.0f, 2.0f, 0.001f, 1.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_perspective_rh
 	TESTFW_TEST_BEGIN( "mat44_perspective_rh matches D3DXMatrixPerspectiveRH" )
 		mat44_t m = mat44_perspective_rh( 4.0f, 3.0f, 0.1f, 100.0f );
@@ -19562,7 +19562,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixPerspectiveRH( &d3d, 2.0f, 2.0f, 0.001f, 1.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_perspective_off_center_lh
 	TESTFW_TEST_BEGIN( "mat44_perspective_off_center_lh matches D3DXMatrixPerspectiveOffCenterLH" )
 		mat44_t m = mat44_perspective_off_center_lh( -2.0f, 2.0f, -1.5f, 1.5f, 0.1f, 100.0f );
@@ -19581,7 +19581,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixPerspectiveOffCenterLH( &d3d, -1.0f, 1.0f, -1.0f, 1.0f, 0.001f, 1.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-		
+
 	// mat44_perspective_off_center_rh
 	TESTFW_TEST_BEGIN( "mat44_perspective_off_center_rh matches D3DXMatrixPerspectiveOffCenterRH" )
 		mat44_t m = mat44_perspective_off_center_rh( -2.0f, 2.0f, -1.5f, 1.5f, 0.1f, 100.0f );
@@ -19600,7 +19600,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixPerspectiveOffCenterRH( &d3d, -1.0f, 1.0f, -1.0f, 1.0f, 0.001f, 1.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_perspective_fov_lh
 	TESTFW_TEST_BEGIN( "mat44_perspective_fov_lh matches D3DXMatrixPerspectiveFovLH" )
 		mat44_t m = mat44_perspective_fov_lh( 1.0472f, 4.0f / 3.0f, 0.1f, 100.0f );
@@ -19619,7 +19619,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixPerspectiveFovLH( &d3d, 0.3491f, 1.0f, 0.001f, 1.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_perspective_fov_rh
 	TESTFW_TEST_BEGIN( "mat44_perspective_fov_rh matches D3DXMatrixPerspectiveFovRH" )
 		mat44_t m = mat44_perspective_fov_rh( 1.0472f, 4.0f / 3.0f, 0.1f, 100.0f );
@@ -19638,7 +19638,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixPerspectiveFovRH( &d3d, 0.3491f, 1.0f, 0.001f, 1.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_rotation_axis
 	TESTFW_TEST_BEGIN( "mat44_rotation_axis matches D3DXMatrixRotationAxis for x-axis" )
 		vec3_t axis = vec3( 1, 0, 0 );
@@ -19660,7 +19660,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixRotationAxis( &d3d, (D3DXVECTOR3*)&axis, 0.7854f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	TESTFW_TEST_BEGIN( "mat44_rotation_axis matches D3DXMatrixRotationAxis for arbitrary axis" )
 		vec3_t axis = vec3( -2.0f, 5.5f, 1.25f );
 		mat44_t m = mat44_rotation_axis( axis, 0.7854f );
@@ -19686,7 +19686,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixRotationX( &d3d, 0.1f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_rotation_y
 	TESTFW_TEST_BEGIN( "mat44_rotation_y matches D3DXMatrixRotationY for 90 degrees" )
 		mat44_t m = mat44_rotation_y( 1.5708f );
@@ -19705,7 +19705,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixRotationY( &d3d, 0.1f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_rotation_z
 	TESTFW_TEST_BEGIN( "mat44_rotation_z matches D3DXMatrixRotationZ for 90 degrees" )
 		mat44_t m = mat44_rotation_z( 1.5708f );
@@ -19724,7 +19724,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixRotationZ( &d3d, 0.1f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_rotation_yaw_pitch_roll
 	TESTFW_TEST_BEGIN( "mat44_rotation_yaw_pitch_roll matches D3DXMatrixRotationYawPitchRoll for yaw only" )
 		mat44_t m = mat44_rotation_yaw_pitch_roll( 1.5708f, 0.0f, 0.0f );
@@ -19779,7 +19779,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixRotationYawPitchRoll( &d3d, 0.001f, -0.002f, 0.0005f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_scaling
 	TESTFW_TEST_BEGIN( "mat44_scaling matches D3DXMatrixScaling for uniform scale" )
 		mat44_t m = mat44_scaling( 2.0f, 2.0f, 2.0f );
@@ -19798,7 +19798,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixScaling( &d3d, -1.0f, 1.0f, -1.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_translation
 	TESTFW_TEST_BEGIN( "mat44_translation matches D3DXMatrixTranslation for positive offset" )
 		mat44_t m = mat44_translation( 1.0f, 2.0f, 3.0f );
@@ -19817,7 +19817,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixTranslation( &d3d, 0.0f, 0.0f, 0.0f );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_decompose
 	TESTFW_TEST_BEGIN( "mat44_decompose matches D3DXMatrixDecompose for identity matrix" )
 		vec3_t s; vec4_t q; vec3_t t;
@@ -19936,7 +19936,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dr; D3DXQuaternionSlerp( &d3dr, (D3DXQUATERNION*)&a, (D3DXQUATERNION*)&b, 0.5f );
 		TESTFW_EXPECTED( QUAT_APPROX( r, d3dr ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_barycentric
 	TESTFW_TEST_BEGIN( "quat_barycentric matches D3DXQuaternionBaryCentric at midpoint (f = 0.5, g = 0.0)" )
 		vec4_t q1 = vec4( 0.0f, 0.0f, 0.0f, 1.0f );
@@ -19964,7 +19964,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dr; D3DXQuaternionBaryCentric( &d3dr, (D3DXQUATERNION*)&q1, (D3DXQUATERNION*)&q2, (D3DXQUATERNION*)&q3, 1.0f, 0.0f );
 		TESTFW_EXPECTED( QUAT_APPROX( r, d3dr ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_conjugate
 	TESTFW_TEST_BEGIN( "quat_conjugate matches D3DXQuaternionConjugate for positive quaternion" )
 		vec4_t q = vec4( 0.3f, 0.4f, 0.5f, 0.6f );
@@ -19986,7 +19986,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dr; D3DXQuaternionConjugate( &d3dr, (D3DXQUATERNION*)&q );
 		TESTFW_EXPECTED( QUAT_APPROX( r, d3dr ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_exp
 	TESTFW_TEST_BEGIN( "quat_exp matches D3DXQuaternionExp for unit imaginary quaternion" )
 		vec4_t q = vec4( 1.0f, 0.0f, 0.0f, 0.0f );
@@ -20008,14 +20008,14 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dr; D3DXQuaternionExp( &d3dr, (D3DXQUATERNION*)&q );
 		TESTFW_EXPECTED( QUAT_APPROX( r, d3dr ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_identity
 	TESTFW_TEST_BEGIN( "quat_identity matches D3DXQuaternionIdentity" )
 		vec4_t q = quat_identity();
 		D3DXQUATERNION d3dq; D3DXQuaternionIdentity( &d3dq );
 		TESTFW_EXPECTED( QUAT_APPROX( q, d3dq ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_inverse
 	TESTFW_TEST_BEGIN( "quat_inverse matches D3DXQuaternionInverse for unit quaternion" )
 		vec4_t q = vec4( 0.0f, 0.0f, 0.7071f, 0.7071f );
@@ -20038,7 +20038,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dr; D3DXQuaternionInverse( &d3dr, (D3DXQUATERNION*)&q );
 		TESTFW_EXPECTED( QUAT_APPROX( r, d3dr ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_ln
 	TESTFW_TEST_BEGIN( "quat_ln matches D3DXQuaternionLn for 90-degree x-rotation" )
 		vec4_t q = vec4( 0.7071f, 0.0f, 0.0f, 0.7071f );
@@ -20060,7 +20060,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dr; D3DXQuaternionLn( &d3dr, (D3DXQUATERNION*)&q );
 		TESTFW_EXPECTED( QUAT_APPROX( r, d3dr ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_mul
 	TESTFW_TEST_BEGIN( "quat_mul matches D3DXQuaternionMultiply for identity * identity" )
 		vec4_t a = vec4( 0, 0, 0, 1 );
@@ -20093,7 +20093,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dr; D3DXQuaternionMultiply( &d3dr, (D3DXQUATERNION*)&a, (D3DXQUATERNION*)&b );
 		TESTFW_EXPECTED( QUAT_APPROX( r, d3dr ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_rotation_axis
 	TESTFW_TEST_BEGIN( "quat_rotation_axis matches D3DXQuaternionRotationAxis for 90-degree x-rotation" )
 		vec3_t axis = vec3( 1, 0, 0 );
@@ -20126,7 +20126,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dq; D3DXQuaternionRotationAxis( &d3dq, (D3DXVECTOR3*)&axis, angle );
 		TESTFW_EXPECTED( QUAT_APPROX( q, d3dq ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_rotation_matrix
 	TESTFW_TEST_BEGIN( "quat_rotation_matrix matches D3DXQuaternionRotationMatrix for identity matrix" )
 		mat44_t m = mat44_identity();
@@ -20169,7 +20169,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dq; D3DXQuaternionRotationMatrix( &d3dq, (D3DXMATRIX*)&m );
 		TESTFW_EXPECTED( QUAT_APPROX( q, d3dq ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_rotation_yaw_pitch_roll
 	TESTFW_TEST_BEGIN( "quat_rotation_yaw_pitch_roll matches D3DXQuaternionRotationYawPitchRoll for yaw only" )
 		vec4_t q = quat_rotation_yaw_pitch_roll( 1.5708f, 0.0f, 0.0f );
@@ -20224,7 +20224,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dq; D3DXQuaternionRotationYawPitchRoll( &d3dq, 0.001f, -0.002f, 0.0005f );
 		TESTFW_EXPECTED( QUAT_APPROX( q, d3dq ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_squad_setup
 	TESTFW_TEST_BEGIN( "quat_squad_setup matches D3DXQuaternionSquadSetup for identity path" )
 		vec4_t q0 = vec4( 0, 0, 0, 1 );
@@ -20326,7 +20326,7 @@ void test_d3d_compliance( void ) {
 		D3DXQuaternionSquad( &d3dr, (D3DXQUATERNION*)&q1, &da, &db, &dc, 0.3f );
 		TESTFW_EXPECTED( QUAT_APPROX( r, d3dr ) );
 	TESTFW_TEST_END();
-	
+
 	TESTFW_TEST_BEGIN( "quat_squad matches D3DXQuaternionSquad for arbitrary quaternions" )
 		vec4_t q1 = vec4( -0.4f, 0.3f, 0.1f, 0.85f );
 		vec4_t a = vec4( 0.5f, -0.6f, 0.2f, 0.3f );
@@ -20365,7 +20365,7 @@ void test_d3d_compliance( void ) {
 		D3DXQuaternionToAxisAngle( (D3DXQUATERNION*)&q, &d3daxis, &d3dangle );
 		TESTFW_EXPECTED( VEC3_APPROX( axis, d3daxis ) ); TESTFW_EXPECTED( vecmath_abs( angle - d3dangle ) < 0.00001f );
 	TESTFW_TEST_END();
-	
+
 	// quat_rotate_vector
 	TESTFW_TEST_BEGIN( "quat_rotate_vector matches D3DXVec3TransformCoord for identity rotation" )
 		vec3_t v = vec3( 1.0f, 2.0f, 3.0f );
@@ -20396,7 +20396,7 @@ void test_d3d_compliance( void ) {
 		D3DXVECTOR3 d3dr; D3DXVec3TransformCoord( &d3dr, &d3dv, &m );
 		TESTFW_EXPECTED( VEC3_APPROX( r, d3dr ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_from_mat44
 	TESTFW_TEST_BEGIN( "quat_from_mat44 matches D3DXQuaternionRotationMatrix for identity matrix" )
 		mat44_t m = mat44_identity();
@@ -20427,7 +20427,7 @@ void test_d3d_compliance( void ) {
 		D3DXQUATERNION d3dq; D3DXQuaternionRotationMatrix( &d3dq, (D3DXMATRIX*)&m );
 		TESTFW_EXPECTED( QUAT_APPROX( q, d3dq ) );
 	TESTFW_TEST_END();
-	
+
 	// mat44_from_quat
 	TESTFW_TEST_BEGIN( "mat44_from_quat matches D3DXMatrixRotationQuaternion for identity quaternion" )
 		vec4_t q = quat_identity();
@@ -20456,7 +20456,7 @@ void test_d3d_compliance( void ) {
 		D3DXMATRIX d3d; D3DXMatrixRotationQuaternion( &d3d, (D3DXQUATERNION*)&q );
 		TESTFW_EXPECTED( MAT44_APPROX( m, d3d ) );
 	TESTFW_TEST_END();
-	
+
 	// quat_normalize
 	TESTFW_TEST_BEGIN( "quat_normalize matches D3DXQuaternionNormalize for identity quaternion" )
 		vec4_t q = vec4( 0, 0, 0, 1 );
