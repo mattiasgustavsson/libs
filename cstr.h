@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-cstr.h - v1.1 - String interning and manipulation library for C/C++.
+cstr.h - v1.2 - String interning and manipulation library for C/C++.
 
 Do this:
     #define CSTR_IMPLEMENTATION
@@ -67,9 +67,9 @@ char const* cstr_trim( char const* str );
 char const* cstr_ltrim( char const* str );
 char const* cstr_rtrim( char const* str );
 
-char const* cstr_left( char const* str, size_t n );
-char const* cstr_right( char const* str, size_t n );
-char const* cstr_mid( char const* str, size_t start, size_t n );
+char const* cstr_left( char const* str, CSTR_SIZE_T n );
+char const* cstr_right( char const* str, CSTR_SIZE_T n );
+char const* cstr_mid( char const* str, CSTR_SIZE_T start, CSTR_SIZE_T n );
 
 char const* cstr_upper( char const* str );
 char const* cstr_lower( char const* str );
@@ -102,7 +102,8 @@ CSTR_U32 cstr_hash( char const* str );
 struct cstr_tokenizer_t cstr_tokenizer( char const* str );
 char const* cstr_tokenize( struct cstr_tokenizer_t* tokenizer, char const* separators );
 
-char* cstr_temp_buffer( size_t capacity );
+char* cstr_temp_buffer( CSTR_SIZE_T capacity );
+CSTR_SIZE_T cstr_temp_buffer_capacity( void );
 
 #endif /* CSTR_NO_GLOBAL_API */
 
@@ -134,9 +135,9 @@ char const* cstri_trim( struct cstri_t* cstri, char const* str );
 char const* cstri_ltrim( struct cstri_t* cstri, char const* str );
 char const* cstri_rtrim( struct cstri_t* cstri, char const* str );
 
-char const* cstri_left( struct cstri_t* cstri, char const* str, size_t n );
-char const* cstri_right( struct cstri_t* cstri, char const* str, size_t n );
-char const* cstri_mid( struct cstri_t* cstri, char const* str, size_t start, size_t n );
+char const* cstri_left( struct cstri_t* cstri, char const* str, CSTR_SIZE_T n );
+char const* cstri_right( struct cstri_t* cstri, char const* str, CSTR_SIZE_T n );
+char const* cstri_mid( struct cstri_t* cstri, char const* str, CSTR_SIZE_T start, CSTR_SIZE_T n );
 
 char const* cstri_upper( struct cstri_t* cstri, char const* str );
 char const* cstri_lower( struct cstri_t* cstri, char const* str );
@@ -169,7 +170,8 @@ CSTR_U32 cstri_hash( struct cstri_t* cstri, char const* str );
 struct cstr_tokenizer_t cstri_tokenizer( struct cstri_t* cstri, char const* str );
 char const* cstri_tokenize( struct cstri_t* cstri, struct cstr_tokenizer_t* tokenizer, char const* separators );
 
-char* cstri_temp_buffer( struct cstri_t* cstri, size_t capacity );
+char* cstri_temp_buffer( struct cstri_t* cstri, CSTR_SIZE_T capacity );
+CSTR_SIZE_T cstri_temp_buffer_capacity( struct cstri_t* cstri );
 
 #endif /* CSTR_INSTANCE_API */
 
@@ -311,6 +313,10 @@ cstr.h
     #define CSTR_FREE( ctx, ptr ) ( free( ptr ) )
 #endif
 
+#ifndef CSTR_GLOBAL_API_MEMCTX
+    #define CSTR_GLOBAL_API_MEMCTX NULL
+#endif
+
 #define _CRT_NONSTDC_NO_DEPRECATE
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdarg.h>
@@ -379,7 +385,7 @@ static struct cstr_slot_t* internal_cstr_interned( struct cstri_t* cstri, char c
                 str -= sizeof( CSTR_U32 );
                 CSTR_U32 hash = *(CSTR_U32*) str;
                 str -= sizeof( CSTR_SIZE_T );
-                size_t slot = ( hash & ( cstri->hash_table_capacity - 1 ) );
+                CSTR_SIZE_T slot = ( hash & ( cstri->hash_table_capacity - 1 ) );
                 while( cstri->hash_table[ slot ].string ) {
                     if( cstri->hash_table[ slot ].string == str ) {
                         return &cstri->hash_table[ slot ];
@@ -395,7 +401,7 @@ static struct cstr_slot_t* internal_cstr_interned( struct cstri_t* cstri, char c
 
 
 static struct cstr_slot_t* internal_cstr_find_slot( struct cstri_t* cstri, CSTR_U32 hash, char const* str, CSTR_SIZE_T len ) {
-    size_t slot = ( hash & ( cstri->hash_table_capacity - 1 ) );
+    CSTR_SIZE_T slot = ( hash & ( cstri->hash_table_capacity - 1 ) );
     while( cstri->hash_table[ slot ].string ) {
         if( cstri->hash_table[ slot ].hash == hash && cstri->hash_table[ slot ].length == len ) {
             char const* slot_string = cstri->hash_table[ slot ].string + sizeof( CSTR_SIZE_T ) + sizeof( CSTR_U32 );
@@ -426,7 +432,7 @@ static char const* internal_cstr_insert( struct cstri_t* cstri, char const* str,
     }
 
     if( cstri->hash_table_count >= cstri->hash_table_capacity / 3 ) {
-        size_t old_capacity = cstri->hash_table_capacity;
+        CSTR_SIZE_T old_capacity = cstri->hash_table_capacity;
         struct cstr_slot_t* old_table = cstri->hash_table;
 
         cstri->hash_table_capacity *= 2;
@@ -435,10 +441,10 @@ static char const* internal_cstr_insert( struct cstri_t* cstri, char const* str,
             cstri->hash_table_capacity * sizeof( *cstri->hash_table ) );
         CSTR_MEMSET( cstri->hash_table, 0, cstri->hash_table_capacity * sizeof( *cstri->hash_table ) );
 
-        for( size_t i = 0; i < old_capacity; ++i ) {
+        for( CSTR_SIZE_T i = 0; i < old_capacity; ++i ) {
             if( old_table[ i ].string ) {
                 CSTR_U32 entry_hash = old_table[ i ].hash;
-                size_t new_slot = ( entry_hash & ( cstri->hash_table_capacity - 1 ) );
+                CSTR_SIZE_T new_slot = ( entry_hash & ( cstri->hash_table_capacity - 1 ) );
                 while( cstri->hash_table[ new_slot ].string ) {
                     new_slot = ( new_slot + 1 ) & ( cstri->hash_table_capacity - 1 );
                 }
@@ -492,7 +498,7 @@ static char const* internal_cstr_insert( struct cstri_t* cstri, char const* str,
 }
 
 
-static char* internal_cstr_temp_buffer( struct cstri_t* cstri, size_t capacity ) {
+static char* internal_cstr_temp_buffer( struct cstri_t* cstri, CSTR_SIZE_T capacity ) {
     if( cstri->temp_capacity <= capacity ) {
         CSTR_FREE( cstri->memctx, cstri->temp_buffer );
         while( cstri->temp_capacity <= capacity ) {
@@ -577,7 +583,7 @@ void cstri_rollback( struct cstri_t* cstri, struct cstr_restore_point_t* restore
             CSTR_SIZE_T len = *(CSTR_SIZE_T*)ptr;
             CSTR_U32 hash = *(CSTR_U32*)( ptr + sizeof( CSTR_SIZE_T ) );
 
-            size_t slot = ( hash & ( cstri->hash_table_capacity - 1 ) );
+            CSTR_SIZE_T slot = ( hash & ( cstri->hash_table_capacity - 1 ) );
             while( cstri->hash_table[ slot ].string ) {
                 slot = ( slot + 1 ) & ( cstri->hash_table_capacity - 1 );
             }
@@ -710,7 +716,7 @@ char const* cstri_rtrim( struct cstri_t* cstri, char const* str ) {
 }
 
 
-char const* cstri_left( struct cstri_t* cstri, char const* str, size_t n ) {
+char const* cstri_left( struct cstri_t* cstri, char const* str, CSTR_SIZE_T n ) {
     if( !str ) {
         return internal_cstr_insert( cstri, "", 0 );
     }
@@ -722,7 +728,7 @@ char const* cstri_left( struct cstri_t* cstri, char const* str, size_t n ) {
 }
 
 
-char const* cstri_right( struct cstri_t* cstri, char const* str, size_t n ) {
+char const* cstri_right( struct cstri_t* cstri, char const* str, CSTR_SIZE_T n ) {
     if( !str ) {
         return internal_cstr_insert( cstri, "", 0 );
     }
@@ -734,7 +740,7 @@ char const* cstri_right( struct cstri_t* cstri, char const* str, size_t n ) {
 }
 
 
-char const* cstri_mid( struct cstri_t* cstri, char const* str, size_t start, size_t n ) {
+char const* cstri_mid( struct cstri_t* cstri, char const* str, CSTR_SIZE_T start, CSTR_SIZE_T n ) {
     if( !str ) {
         return internal_cstr_insert( cstri, "", 0 );
     }
@@ -1082,8 +1088,13 @@ char const* cstri_tokenize( struct cstri_t* cstri, struct cstr_tokenizer_t* toke
 }
 
 
-char* cstri_temp_buffer( struct cstri_t* cstri, size_t capacity ) {
+char* cstri_temp_buffer( struct cstri_t* cstri, CSTR_SIZE_T capacity ) {
     return internal_cstr_temp_buffer( cstri, capacity );
+}
+
+
+CSTR_SIZE_T cstri_temp_buffer_capacity( struct cstri_t* cstri ) {
+    return cstri->temp_capacity - 1;
 }
 
 
@@ -1105,7 +1116,7 @@ void internal_cstr_cleanup( void ) {
 
 static void internal_cstr_instance( void ) {
     if( !g_internal_cstr ) {
-        g_internal_cstr = cstri_create( NULL );
+        g_internal_cstr = cstri_create( CSTR_GLOBAL_API_MEMCTX );
         static int atexit_set = 0;
         if( !atexit_set ) {
             #ifndef __wasm__
@@ -1234,7 +1245,7 @@ char const* cstr_rtrim( char const* str ) {
 }
 
 
-char const* cstr_left( char const* str, size_t n ) {
+char const* cstr_left( char const* str, CSTR_SIZE_T n ) {
     CSTR_MUTEX_LOCK();
     if( !g_internal_cstr ) internal_cstr_instance();
     char const* ret = cstri_left( g_internal_cstr, str, n );
@@ -1243,7 +1254,7 @@ char const* cstr_left( char const* str, size_t n ) {
 }
 
 
-char const* cstr_right( char const* str, size_t n ) {
+char const* cstr_right( char const* str, CSTR_SIZE_T n ) {
     CSTR_MUTEX_LOCK();
     if( !g_internal_cstr ) internal_cstr_instance();
     char const* ret = cstri_right( g_internal_cstr, str, n );
@@ -1252,7 +1263,7 @@ char const* cstr_right( char const* str, size_t n ) {
 }
 
 
-char const* cstr_mid( char const* str, size_t start, size_t n ) {
+char const* cstr_mid( char const* str, CSTR_SIZE_T start, CSTR_SIZE_T n ) {
     CSTR_MUTEX_LOCK();
     if( !g_internal_cstr ) internal_cstr_instance();
     char const* ret = cstri_mid( g_internal_cstr, str, start, n );
@@ -1377,7 +1388,7 @@ CSTR_BOOL_T cstr_is_equal( char const* a, char const* b ) {
     if( !g_internal_cstr ) internal_cstr_instance();
     int ret = cstri_is_equal( g_internal_cstr, a, b );
     CSTR_MUTEX_UNLOCK();
-    return ret;
+    return (CSTR_BOOL_T)ret;
 }
 
 
@@ -1450,10 +1461,19 @@ char const* cstr_tokenize( struct cstr_tokenizer_t* tokenizer, char const* separ
 }
 
 
-char* cstr_temp_buffer( size_t capacity ) {
+char* cstr_temp_buffer( CSTR_SIZE_T capacity ) {
     CSTR_MUTEX_LOCK();
     if( !g_internal_cstr ) internal_cstr_instance();
     char* ret = cstri_temp_buffer( g_internal_cstr, capacity );
+    CSTR_MUTEX_UNLOCK();
+    return ret;
+}
+
+
+CSTR_SIZE_T cstr_temp_buffer_capacity( void ) {
+    CSTR_MUTEX_LOCK();
+    if( !g_internal_cstr ) internal_cstr_instance();
+    CSTR_SIZE_T ret = cstri_temp_buffer_capacity( g_internal_cstr );
     CSTR_MUTEX_UNLOCK();
     return ret;
 }
@@ -1566,7 +1586,14 @@ void test_cstr( void ) {
     char const* str = cstr( "Static test string" );
     TESTFW_EXPECTED( cstr_is_interned( str ) );
     TESTFW_EXPECTED( str != NULL );
+    #if defined(__clang__)
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wstring-compare"
+    #endif
     TESTFW_EXPECTED( str != (char*)"Static test string" );
+    #if defined(__clang__)
+        #pragma clang diagnostic pop
+    #endif
     TESTFW_EXPECTED( strcmp( str, "Static test string" ) == 0 );
     TESTFW_TEST_END();
 
@@ -1605,7 +1632,14 @@ void test_cstr_n( void ) {
     char const* str = cstr_n( "Static test string", 18 );
     TESTFW_EXPECTED( cstr_is_interned( str ) );
     TESTFW_EXPECTED( str != NULL );
+    #if defined(__clang__)
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wstring-compare"
+    #endif
     TESTFW_EXPECTED( str != (char*)"Static test string" );
+    #if defined(__clang__)
+        #pragma clang diagnostic pop
+    #endif
     TESTFW_EXPECTED( strcmp( str, "Static test string" ) == 0 );
     TESTFW_TEST_END();
 
@@ -1642,7 +1676,14 @@ void test_cstr_n( void ) {
     char const* str = cstr_n( "Static test string", 30 );
     TESTFW_EXPECTED( cstr_is_interned( str ) );
     TESTFW_EXPECTED( str != NULL );
+    #if defined(__clang__)
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wstring-compare"
+    #endif
     TESTFW_EXPECTED( str != (char*)"Static test string" );
+    #if defined(__clang__)
+        #pragma clang diagnostic pop
+    #endif
     TESTFW_EXPECTED( strcmp( str, "Static test string" ) == 0 );
     TESTFW_TEST_END();
 
@@ -1672,7 +1713,14 @@ void test_cstr_n( void ) {
     char const* str = cstr_n( "Static test string", 6 );
     TESTFW_EXPECTED( cstr_is_interned( str ) );
     TESTFW_EXPECTED( str != NULL );
+    #if defined(__clang__)
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wstring-compare"
+    #endif
     TESTFW_EXPECTED( str != (char*)"Static" );
+    #if defined(__clang__)
+        #pragma clang diagnostic pop
+    #endif
     TESTFW_EXPECTED( strcmp( str, "Static" ) == 0 );
     TESTFW_TEST_END();
 
@@ -3057,7 +3105,7 @@ void test_cstr_tokenize( void ) {
 
 
 int main( int argc, char** argv ) {
-    (void) argc, argv;
+    (void) argc, (void) argv;
 
     TESTFW_INIT();
 
@@ -3091,7 +3139,10 @@ int main( int argc, char** argv ) {
     test_cstr_rfind();
     test_cstr_hash();
     test_cstr_tokenize();
-    stress_tests();
+    
+    #ifndef CSTR_DISABLE_STRESS_TESTS
+        stress_tests();
+    #endif
 
     cstr_reset();
     return TESTFW_SUMMARY();
@@ -3107,7 +3158,7 @@ int main( int argc, char** argv ) {
     #else
         struct HINSTANCE__;
         int __stdcall WinMain( struct HINSTANCE__* a, struct HINSTANCE__* b, char* c, int d ) {
-            (void) a, b, c, d; return main( __argc, __argv );
+            (void) a, (void) b, (void) c, (void) d; return main( __argc, __argv );
         }
     #endif
 #endif
@@ -3120,6 +3171,7 @@ int main( int argc, char** argv ) {
 
 /*
 revision history:
+    1.2     external API access for temp buffer
     1.1     implemented lpad, rpad, join, replace, insert, remove, rfind
     1.0     first released version
 */
