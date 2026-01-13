@@ -381,7 +381,7 @@ Element-wise functions
 ----------------------
 
 There is a large number of functions defined for every type, that perform 
-element-wise calculations. Here are their declarations for the vect2_t
+element-wise calculations. Here are their declarations for the vec2_t
 type, but the naming is consistent for all other types (both vector and 
 matrix types):
 
