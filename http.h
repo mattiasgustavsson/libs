@@ -3,7 +3,7 @@
           Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-http.hpp - v1.0 - Basic HTTP protocol implementation over sockets (no https).
+http.hpp - v1.1 - Basic HTTP protocol implementation over sockets (no https).
 
 Do this:
     #define HTTP_IMPLEMENTATION
@@ -34,6 +34,9 @@ typedef struct http_t
     size_t response_size;
     void* response_data;
     } http_t;
+
+int  http_subsys_startup(); // return -1 on error. necessary only on windows if you don't already call WSAStartup.
+void http_subsys_stop();
 
 http_t* http_get( char const* url, void* memctx );
 http_t* http_post( char const* url, void const* data, size_t size, void* memctx );
@@ -245,6 +248,23 @@ typedef struct http_internal_t
     void* data;
     } http_internal_t;
 
+// return -1 on error.
+int http_subsys_startup() {
+#ifdef _WIN32
+    WSADATA wsa_data;
+    // no problem if WSAStartup is called multiple times, so should
+    // integrate nicely with code that already calls WSAStartup.
+    if (WSAStartup(MAKEWORD(1, 0), &wsa_data) != 0)
+        return -1;
+#endif
+    return 0;
+}
+
+void http_subsys_stop() {
+#ifdef _WIN32
+    WSACleanup();
+#endif
+}
 
 static int http_internal_parse_url( char const* url, char* address, size_t address_capacity, char* port, 
     size_t port_capacity, char const** resource )
@@ -362,6 +382,8 @@ HTTP_SOCKET http_internal_connect( char const* address, char const* port )
 static http_internal_t* http_internal_create( size_t request_data_size, void* memctx )
     {
     http_internal_t* internal = (http_internal_t*) HTTP_MALLOC( memctx, sizeof( http_internal_t ) + request_data_size );
+    if (!internal)
+        return nullptr;
 
     internal->http.status = HTTP_STATUS_PENDING;
     internal->http.status_code = 0;
@@ -379,7 +401,7 @@ static http_internal_t* http_internal_create( size_t request_data_size, void* me
     internal->http.content_type = internal->content_type;
 
     internal->data_size = 0;
-    internal->data_capacity = 64 * 1024;
+    internal->data_capacity = (size_t)64 * 1024;
     internal->data = HTTP_MALLOC( memctx, internal->data_capacity );
     
     internal->request_data = NULL;
@@ -422,7 +444,7 @@ http_t* http_get( char const* url, void* memctx )
         request_header = internal->request_header_large;
         }       
     int default_http_port = (strcmp(port, "80") == 0);
-    sprintf( request_header, "GET %s HTTP/1.0\r\nHost: %s%s%s\r\n\r\n", resource, address, default_http_port ? "" : ":", default_http_port ? "" : port );
+    snprintf( request_header, request_header_len, "GET %s HTTP/1.0\r\nHost: %s%s%s\r\n\r\n", resource, address, default_http_port ? "" : ":", default_http_port ? "" : port );
     
     return &internal->http;
     }
@@ -461,7 +483,7 @@ http_t* http_post( char const* url, void const* data, size_t size, void* memctx 
         request_header = internal->request_header_large;
         }       
     int default_http_port = (strcmp(port, "80") == 0);
-    sprintf( request_header, "POST %s HTTP/1.0\r\nHost: %s%s%s\r\nContent-Length: %d\r\n\r\n", resource, address, default_http_port ? "" : ":", default_http_port ? "" : port, 
+    snprintf( request_header, request_header_len, "POST %s HTTP/1.0\r\nHost: %s%s%s\r\nContent-Length: %d\r\n\r\n", resource, address, default_http_port ? "" : ":", default_http_port ? "" : port,
         (int) size );
     
     internal->request_data_size = size;
@@ -488,13 +510,19 @@ http_status_t http_process( http_t* http )
         #pragma warning( pop )
         struct timeval timeout; timeout.tv_sec = 0; timeout.tv_usec = 0;
         // check if socket is ready for send
-        if( select( (int)( internal->socket + 1 ), NULL, &sockets_to_check, NULL, &timeout ) == 1 ) 
+        int r = select( (int)(internal->socket + 1), NULL, &sockets_to_check, NULL, &timeout );
+        int opt = -1;
+        socklen_t len = sizeof(opt);
+        // check if socket is in error state
+        // we should be able to get by with only the select call (add the exceptions param), but no time to fix this for now.
+        int r2 = getsockopt( internal->socket, SOL_SOCKET, SO_ERROR, (char*)(&opt), &len );
+        if( r == -1 || r2 || opt )
             {
-            int opt = -1;
-            socklen_t len = sizeof( opt ); 
-            if( getsockopt( internal->socket, SOL_SOCKET, SO_ERROR, (char*)( &opt ), &len) >= 0 && opt == 0 ) 
-                internal->connect_pending = 0; // if it is, we're connected
+                http->status = HTTP_STATUS_FAILED;
+                return http->status;
             }
+        if( r == 1 ) // socket is ready to send
+            internal->connect_pending = 0;
         }
 
     if( internal->connect_pending ) return http->status;
@@ -521,21 +549,38 @@ http_status_t http_process( http_t* http )
         return http->status;
         }
 
-    // check if socket is ready for recv
-    fd_set sockets_to_check; 
-    FD_ZERO( &sockets_to_check );
-    #pragma warning( push )
-    #pragma warning( disable: 4548 ) // expression before comma has no effect; expected expression with side-effect
-    FD_SET( internal->socket, &sockets_to_check );
-    #pragma warning( pop )
     struct timeval timeout; timeout.tv_sec = 0; timeout.tv_usec = 0;
-    while( select( (int)( internal->socket + 1 ), &sockets_to_check, NULL, NULL, &timeout ) == 1 )
+
+    while( 1 )
         {
+        // check if socket is ready for recv
+        fd_set sockets_to_check;
+        fd_set sockets_to_check_for_error;
+        FD_ZERO(&sockets_to_check);
+        FD_ZERO(&sockets_to_check_for_error);
+        #pragma warning( push )
+        #pragma warning( disable: 4548 ) // expression before comma has no effect; expected expression with side-effect
+        FD_SET(internal->socket, &sockets_to_check);
+        FD_SET(internal->socket, &sockets_to_check_for_error);
+        #pragma warning( pop )
+
+        int r = select((int)(internal->socket + 1), &sockets_to_check, NULL, &sockets_to_check_for_error, &timeout);
+        if(!FD_ISSET(internal->socket, &sockets_to_check) && (r == -1 || FD_ISSET(internal->socket, &sockets_to_check_for_error) ))
+            {
+            http->status = HTTP_STATUS_FAILED;
+            return http->status;
+            }
         char buffer[ 4096 ];
         int size = recv( internal->socket, buffer, sizeof( buffer ), 0 );
         if( size == -1 )
             {
-            http->status = HTTP_STATUS_FAILED;
+#ifdef _WIN32
+            if (WSAGetLastError() != WSAEWOULDBLOCK && WSAGetLastError() != WSAEINPROGRESS)
+                http->status = HTTP_STATUS_FAILED;
+#else
+            if (errno != EWOULDBLOCK && errno != EINPROGRESS && errno != EAGAIN)
+                http->status = HTTP_STATUS_FAILED;
+#endif
             return http->status;
             }
         else if( size > 0 )
@@ -659,7 +704,11 @@ void http_release( http_t* http )
 
 /*
 revision history:
-    1.0     first released version  
+    1.0     first released version
+    1.1     * fix socket error handling on windows - didn't detect connection refusal
+            * fix two more bugs i've forgotten about
+            * fix compilation warnings (replace sprintf with snprintf)
+            * add http_subsys_startup() and http_subsys_stop()
 */
 
 /*
