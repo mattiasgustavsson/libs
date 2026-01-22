@@ -26,6 +26,10 @@ before include the file to create the implementation.
     #define PIXELFONT_U8 unsigned char
 #endif
 
+#ifndef PIXELFONT_U16
+    #define PIXELFONT_U16 unsigned short
+#endif
+
 #ifndef PIXELFONT_U32
     #define PIXELFONT_U32 unsigned int
 #endif
@@ -83,7 +87,7 @@ typedef struct pixelfont_builder_t pixelfont_builder_t;
 pixelfont_builder_t* pixelfont_builder_create( int height, int baseline, int line_spacing, void* memctx );
 void pixelfont_builder_destroy( pixelfont_builder_t* builder );
 
-void pixelfont_builder_glyph( pixelfont_builder_t* builder, int glyph, int pixels_stride, PIXELFONT_U8* pixels, int width, int lead, int trail );
+void pixelfont_builder_glyph( pixelfont_builder_t* builder, int glyph, int width, PIXELFONT_U8* pixels, int lead, int trail );
 void pixelfont_builder_kerning( pixelfont_builder_t* builder, int glyph, int follower, int adjust );
 
 pixelfont_t* pixelfont_builder_font( pixelfont_builder_t* builder );
@@ -142,12 +146,12 @@ void PIXELFONT_FUNC_NAME( pixelfont_t const* font, int x, int y, char const* tex
         char const* tstr = str;
         while( *tstr != '\n' && *tstr != '\0' && ( wrap_width <= 0 || line_width <= wrap_width  ) )
             {
-            if( *tstr <= ' ' )
+            if( *tstr <= ' ' || ( tstr > str && tstr[-1] == '-' ) )
                 {
                 last_space_char_count = line_char_count;
                 last_space_width = line_width;
                 }
-            PIXELFONT_U8 const* g = font->glyphs + font->offsets[ (int) *tstr ];
+            PIXELFONT_U8 const* g = font->glyphs + font->offsets[ (uint8_t)( *tstr ) ];
             line_width += (PIXELFONT_I8) *g++;
             int w = *g++;
             g += font->height * w;
@@ -181,7 +185,7 @@ void PIXELFONT_FUNC_NAME( pixelfont_t const* font, int x, int y, char const* tex
 
         for( int c = 0; c < line_char_count; ++c )
             {
-            PIXELFONT_U8 const* g = font->glyphs + font->offsets[ (int) *str ];
+            PIXELFONT_U8 const* g = font->glyphs + font->offsets[ (uint8_t)( *str ) ];
             x += (PIXELFONT_I8) *g++;
             int w = *g++;
             int h = font->height;
@@ -221,7 +225,11 @@ void PIXELFONT_FUNC_NAME( pixelfont_t const* font, int x, int y, char const* tex
             last_x_on_line = xp;
             max_x = x > max_x ? x : max_x;
             x = xp;
-            y += font->line_spacing + vspacing;
+            if( *str ) {
+                y += font->line_spacing + vspacing;
+            } else {
+                y += font->height;
+            }
             if( *str == '\n' ) ++str;
             if( *str && skip_space && *str <= ' ' ) ++str;
         }
@@ -326,7 +334,7 @@ void pixelfont_builder_destroy( pixelfont_builder_t* builder )
     }
 
 
-void pixelfont_builder_glyph( pixelfont_builder_t* builder, int glyph, int pixels_stride, PIXELFONT_U8* pixels, int width, int lead, int trail )
+void pixelfont_builder_glyph( pixelfont_builder_t* builder, int glyph, int width, PIXELFONT_U8* pixels, int lead, int trail )
     {
     if( glyph < 0 || glyph > 255 ) return;
 
@@ -339,9 +347,7 @@ void pixelfont_builder_glyph( pixelfont_builder_t* builder, int glyph, int pixel
     if( pixels && width > 0 )
         {
         builder->glyphs[ glyph ].pixels = (PIXELFONT_U8*) PIXELFONT_MALLOC( builder->memctx, width * builder->height * sizeof( PIXELFONT_U8 ) );
-        for( int y = 0; y < builder->height; ++y )
-            for( int x = 0; x < width; ++x )
-                builder->glyphs[ glyph ].pixels[ x + y * width ] = pixels[ x + y * pixels_stride ];
+        PIXELFONT_MEMCPY( builder->glyphs[ glyph ].pixels, pixels, width * builder->height * sizeof( PIXELFONT_U8 ) );
         builder->glyphs[ glyph ].lead = lead < -127 ? -127 : lead > 127 ? 127 : lead;
         builder->glyphs[ glyph ].trail = trail < -127 ? -127 : trail > 127 ? 127 : trail;
         builder->glyphs[ glyph ].width = width < 0 ? 0 : width > 255 ? 255 : width;
@@ -406,7 +412,7 @@ pixelfont_t* pixelfont_builder_font( pixelfont_builder_t* builder )
 
     PIXELFONT_U32 offsets[ 256 ];
     memset( offsets, 0, sizeof( offsets ) );
-    PIXELFONT_U32 current_offset = 0;
+    int current_offset = 1;
     int total_width = 0;
     int glyph_count = 0;
     for( int i = 0; i < sizeof( builder->glyphs ) / sizeof( *builder->glyphs ); ++i )
@@ -421,6 +427,7 @@ pixelfont_t* pixelfont_builder_font( pixelfont_builder_t* builder )
         }
 
     size_t size_in_bytes = sizeof( pixelfont_t ) - sizeof( PIXELFONT_U8 ); // base size excluding final placeholder byte
+	size_in_bytes += 1; // skip first slot in array, as we use 0 for "no glyph" marker
     size_in_bytes += glyph_count + 2 * builder->kernings_count; // kerning pair count for each glyph + all kerning data
     size_in_bytes += 3 * glyph_count; // lead, trail and width for each glyph
     size_in_bytes += total_width * builder->height; // pixel data for all glyphs

@@ -1310,7 +1310,7 @@ thread_tls_t thread_tls_create( void )
 
         pthread_key_t tls;
         if( pthread_key_create( &tls, NULL ) == 0 )
-            return (thread_tls_t) tls;
+            return (thread_tls_t) (uintptr_t) tls;
         else
             return NULL;
 
