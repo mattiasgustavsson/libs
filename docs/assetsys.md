@@ -75,10 +75,10 @@ assetsys.h is a single-header library, and does not need any .lib files or other
 it, you just include assetsys.h to get the API declarations. To get the definitions, you must include assetsys.h from 
 *one* single C or C++ file, and #define the symbol `ASSETSYS_IMPLEMENTATION` before you do. 
 
-assetsys.h has a dependency om another single-header library, strpool.h, which is used for efficient storage and 
+assetsys.h has a dependency on another single-header library, strpool.h, which is used for efficient storage and 
 comparison of the filename and path strings. assetsys.h automatically includes strpool.h, so it must reside in the same
 path. It does not specify the STRPOOL_IMPLEMENTATION define, on the assumption that you might be including strpool.h in
-some other part of your program. If you are not, you can make assetsys.h include the strpool implemention by doing:
+some other part of your program. If you are not, you can make assetsys.h include the strpool implementation by doing:
 
     #define ASSETSYS_IMPLEMENTATION
     #define STRPOOL_IMPLEMENTATION
@@ -89,7 +89,7 @@ Customization
 -------------
 There are a few different things in assetsys.h which are configurable by #defines. Most of the API use the `int` data 
 type, for integer values where the exact size is not important. However, for some functions, it specifically makes use 
-of an unsigned 64 bit data types. It default to using `unsigned long long`, but can be redefined by #defining 
+of an unsigned 64 bit data types. It defaults to using `unsigned long long`, but can be redefined by #defining 
 ASSETSYS_U64, before including assetsys.h. This is useful if you, for example, use the types from `<stdint.h>` in the 
 rest of your program, and you want assetsys.h to use compatible types. In this case, you would include assetsys.h using 
 the following code:
@@ -106,7 +106,7 @@ have the #define ASSETSYS_IMPLEMENTATION.
 
 ### Custom memory allocators
 
-To store the internal data structures, ini.h needs to do dynamic allocation by calling `malloc`. Programs might want to 
+To store the internal data structures, assetsys.h needs to do dynamic allocation by calling `malloc`. Programs might want to 
 keep track of allocations done, or use custom defined pools to allocate memory from. assetsys.h allows for specifying 
 custom memory allocation functions for `malloc` and `free`. This is done with the following code:
 
