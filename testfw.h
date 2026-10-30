@@ -3,7 +3,7 @@
 		  Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-testfw.h - v1.1 - Basic test framework for C/C++.
+testfw.h - v1.2 - Basic test framework for C/C++.
 
 Do this:
 	#define TESTFW_IMPLEMENTATION
@@ -15,7 +15,7 @@ before you include this file in *one* C/C++ file to create the implementation.
 
 #define TESTFW_INIT() testfw_init()
 #define TESTFW_SUMMARY() testfw_summary( __FILE__, __func__, __LINE__ )
-#if defined( _WIN32 ) && !defined( TESTFW_NO_SEH ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
+#if defined( _WIN32 ) && !defined( TESTFW_NO_CRASH_HANDLING ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
     #if defined __cplusplus
         extern "C" unsigned long __cdecl _exception_code(void);
     #else
@@ -24,6 +24,15 @@ before you include this file in *one* C/C++ file to create the implementation.
     #define TESTFW_TEST_BEGIN( desc ) testfw_test_begin( desc, __FILE__, __func__, __LINE__ ); __try {
     #define TESTFW_TEST_END() } __except( 1 /*EXCEPTION_EXECUTE_HANDLER*/ ) \
         { testfw_exception( _exception_code/*GetExceptionCode*/() ); } \
+        testfw_test_end( __FILE__, __func__, __LINE__ )
+#elif ( defined( __linux__ ) || defined( __APPLE__ ) ) && !defined( TESTFW_NO_CRASH_HANDLING )
+    #if defined( __linux__ ) && !defined( _DEFAULT_SOURCE )
+        #define _DEFAULT_SOURCE
+    #endif
+    #include <setjmp.h>
+    #define TESTFW_TEST_BEGIN( desc ) testfw_test_begin( desc, __FILE__, __func__, __LINE__ ); \
+        { int testfw_internal_signum = sigsetjmp( *testfw_jmpbuf(), 1 ); if( testfw_internal_signum == 0 ) {
+    #define TESTFW_TEST_END() } else { testfw_signal( testfw_internal_signum ); } } \
         testfw_test_end( __FILE__, __func__, __LINE__ )
 #else
     #define TESTFW_TEST_BEGIN( desc ) testfw_test_begin( desc, __FILE__, __func__, __LINE__ ); {
@@ -40,17 +49,48 @@ void testfw_print_test_desc( void );
 void testfw_print_failure( char const* filename, int line );
 void testfw_assertion_count_inc( void );
 void testfw_current_test_assertion_failed( void );
-#if defined( _WIN32 ) && !defined( TESTFW_NO_SEH ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
+#if defined( _WIN32 ) && !defined( TESTFW_NO_CRASH_HANDLING ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
     void testfw_exception( unsigned int exception_code );
+#elif ( defined( __linux__ ) || defined( __APPLE__ ) ) && !defined( TESTFW_NO_CRASH_HANDLING )
+    sigjmp_buf* testfw_jmpbuf( void );
+    void testfw_signal( int signum );
 #endif
 
 
 #endif /* testfw_h */
 
 
+/**
+Example use:
 
-#ifdef TESTFW_IMPLEMENTATION
-#undef TESTFW_IMPLEMENTATION
+    #define TESTFW_IMPLEMENTATION
+    #include "testfw.h"
+
+    int main( int argc, char** argv ) {
+        TESTFW_INIT();
+
+        TESTFW_TEST_BEGIN( "arithmetic" );
+            TESTFW_EXPECTED( 1 + 1 == 2 );
+            TESTFW_EXPECTED( 7 / 2 == 3 );
+        TESTFW_TEST_END();
+
+        TESTFW_TEST_BEGIN( "null pointer" );
+            volatile int* ptr = NULL;
+            TESTFW_EXPECTED( *ptr == 0 ); // crashes, but is reported as a failed test and the run continues
+        TESTFW_TEST_END();
+
+        TESTFW_TEST_BEGIN( "comparison" );
+            TESTFW_EXPECTED( 3 > 2 );
+        TESTFW_TEST_END();
+
+        return TESTFW_SUMMARY(); // non-zero if any test failed
+    }
+*/
+
+
+
+#if defined( TESTFW_IMPLEMENTATION ) && !defined( TESTFW_IMPLEMENTATION_INCLUDED )
+#define TESTFW_IMPLEMENTATION_INCLUDED
 
 #define _CRT_NONSTDC_NO_DEPRECATE 
 #define _CRT_SECURE_NO_WARNINGS
@@ -60,9 +100,15 @@ void testfw_current_test_assertion_failed( void );
     #pragma warning( push ) 
     #pragma warning( disable: 4619 ) // pragma warning : there is no warning number 'number'
     #pragma warning( disable: 4668 ) // 'symbol' is not defined as a preprocessor macro, replacing with '0' 
+    #define _CRTDBG_MAP_ALLOC
     #include <crtdbg.h>
     #pragma warning( pop ) 
 #endif /* _WIN32 */
+
+#if defined(__clang__)
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
 
 #ifndef TESTFW_PRINTF
     #define _CRT_NONSTDC_NO_DEPRECATE 
@@ -70,6 +116,10 @@ void testfw_current_test_assertion_failed( void );
     #include <stdio.h>
 
     #define TESTFW_PRINTF( format, ... ) printf( format, ##__VA_ARGS__ ) 
+#endif
+
+#if defined(__clang__)
+    #pragma clang diagnostic pop
 #endif
 
 #ifdef TESTFW_NO_ANSI
@@ -159,10 +209,10 @@ struct testfw_internal_current_test_state_t
 
 static struct 
     {
-    int tests_total;
-    int tests_failed;
-    int assertions_total;
-    int assertions_failed;
+    long long tests_total;
+    long long tests_failed;
+    long long assertions_total;
+    long long assertions_failed;
     struct testfw_internal_current_test_state_t current_test;
     #if defined( _WIN32 ) && defined( _DEBUG )  && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
         int total_leaks;
@@ -170,7 +220,7 @@ static struct
     } testfw_internal_state;
 
 
-static void testfw_internal_print_progress_divider( char ch, int fail, int total )
+static void testfw_internal_print_progress_divider( char ch, long long fail, long long total )
     {
     int width = 79;
     int first = (int)( ( width * fail ) / ( total ? total : 1 ) );
@@ -246,9 +296,64 @@ static void testfw_internal_print_progress_divider( char ch, int fail, int total
 
 #if defined( _WIN32 ) 
     #pragma warning( push )
+    #pragma warning( disable: 4255 )
     #pragma warning( disable: 4668 )
+    #pragma warning( disable: 5105 )
     #include <windows.h>
     #pragma warning( pop )
+#endif
+
+
+#if ( defined( __linux__ ) || defined( __APPLE__ ) ) && !defined( TESTFW_NO_CRASH_HANDLING )
+    #include <signal.h>
+    #include <stdio.h>
+
+    static int const testfw_internal_signals[] = { SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGTRAP };
+    #define TESTFW_INTERNAL_SIGNAL_COUNT ( (int)( sizeof( testfw_internal_signals ) / sizeof( *testfw_internal_signals ) ) )
+
+    static sigjmp_buf testfw_internal_jmpbuf;
+    static struct sigaction testfw_internal_old_actions[ TESTFW_INTERNAL_SIGNAL_COUNT ];
+    static stack_t testfw_internal_old_altstack;
+    static char testfw_internal_altstack[ 64 * 1024 ]; // handler only calls siglongjmp, but must run after stack overflow
+
+
+    static void testfw_internal_signal_handler( int signum )
+        {
+        siglongjmp( testfw_internal_jmpbuf, signum );
+        }
+
+
+    static void testfw_internal_install_signal_handlers( void )
+        {
+        stack_t altstack;
+        memset( &altstack, 0, sizeof( altstack ) );
+        altstack.ss_sp = testfw_internal_altstack;
+        altstack.ss_size = sizeof( testfw_internal_altstack );
+        altstack.ss_flags = 0;
+        sigaltstack( &altstack, &testfw_internal_old_altstack );
+
+        struct sigaction action;
+        memset( &action, 0, sizeof( action ) );
+        action.sa_handler = testfw_internal_signal_handler;
+        action.sa_flags = SA_ONSTACK;
+        sigemptyset( &action.sa_mask );
+        for( int i = 0; i < TESTFW_INTERNAL_SIGNAL_COUNT; ++i )
+            sigaction( testfw_internal_signals[ i ], &action, &testfw_internal_old_actions[ i ] );
+        }
+
+
+    static void testfw_internal_restore_signal_handlers( void )
+        {
+        for( int i = 0; i < TESTFW_INTERNAL_SIGNAL_COUNT; ++i )
+            sigaction( testfw_internal_signals[ i ], &testfw_internal_old_actions[ i ], NULL );
+        sigaltstack( &testfw_internal_old_altstack, NULL );
+        }
+
+
+    sigjmp_buf* testfw_jmpbuf( void )
+        {
+        return &testfw_internal_jmpbuf;
+        }
 #endif
 
 
@@ -325,21 +430,21 @@ int testfw_summary( char const* filename, char const* funcname, int line )
     {
     (void) filename; (void) funcname; (void) line;
     
-    if( testfw_internal_can_not_be_in_test() ) return -1;
+    if( testfw_internal_can_not_be_in_test() ) return 1;
 
     TESTFW_PRINTF( "\n" );
     testfw_internal_print_progress_divider( '=', testfw_internal_state.tests_failed, testfw_internal_state.tests_total );   
     if( testfw_internal_state.tests_failed == 0 && testfw_internal_state.assertions_failed == 0 )
         {
-        TESTFW_PRINTF( "%sAll tests passed%s (%d assertions in %d test cases)\n", TESTFW_ANSI_LIGHT_GREEN, 
+        TESTFW_PRINTF( "%sAll tests passed%s (%lld assertions in %lld test cases)\n", TESTFW_ANSI_LIGHT_GREEN, 
             TESTFW_ANSI_RESET, testfw_internal_state.assertions_total, testfw_internal_state.tests_total );
         }
     else
         {
-        TESTFW_PRINTF( "test cases: %4d |%s %4d passed %s|%s %4d failed%s\n", testfw_internal_state.tests_total,
+        TESTFW_PRINTF( "test cases: %4lld |%s %4lld passed %s|%s %4lld failed%s\n", testfw_internal_state.tests_total,
             TESTFW_ANSI_LIGHT_GREEN, testfw_internal_state.tests_total - testfw_internal_state.tests_failed, 
             TESTFW_ANSI_RESET, TESTFW_ANSI_LIGHT_RED, testfw_internal_state.tests_failed, TESTFW_ANSI_RESET );
-        TESTFW_PRINTF( "assertions: %4d |%s %4d passed %s|%s %4d failed%s\n", testfw_internal_state.assertions_total, 
+        TESTFW_PRINTF( "assertions: %4lld |%s %4lld passed %s|%s %4lld failed%s\n", testfw_internal_state.assertions_total, 
             TESTFW_ANSI_LIGHT_GREEN, testfw_internal_state.assertions_total - testfw_internal_state.assertions_failed, 
             TESTFW_ANSI_RESET, TESTFW_ANSI_LIGHT_RED, testfw_internal_state.assertions_failed, TESTFW_ANSI_RESET );
         }
@@ -351,7 +456,7 @@ int testfw_summary( char const* filename, char const* funcname, int line )
         testfw_internal_state.tests_failed += result ? 1 : 0;
     #endif
 
-    return testfw_internal_state.tests_failed;
+    return testfw_internal_state.tests_failed > 0 ? 1 : 0;
     }
 
 
@@ -369,6 +474,10 @@ void testfw_test_begin( char const* desc, char const* filename, char const* func
     testfw_internal_state.current_test.counted_as_failed = 0;
 
     ++testfw_internal_state.tests_total;
+
+    #if ( defined( __linux__ ) || defined( __APPLE__ ) ) && !defined( TESTFW_NO_CRASH_HANDLING )
+        testfw_internal_install_signal_handlers();
+    #endif
     }
 
 
@@ -377,11 +486,15 @@ void testfw_test_end( char const* filename, char const* funcname, int line )
     (void) filename; (void) funcname; (void) line;
     if( testfw_internal_must_be_in_test() ) return;
 
+    #if ( defined( __linux__ ) || defined( __APPLE__ ) ) && !defined( TESTFW_NO_CRASH_HANDLING )
+        testfw_internal_restore_signal_handlers();
+    #endif
+
     memset( &testfw_internal_state.current_test, 0, sizeof( testfw_internal_state.current_test ) );    
     }
 
 
-#if defined( _WIN32 ) && !defined( TESTFW_NO_SEH ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
+#if defined( _WIN32 ) && !defined( TESTFW_NO_CRASH_HANDLING ) && !defined( __TINYC__ ) && !defined( __GNUC__ ) && !defined( __clang__ )
     #pragma warning( push )
     #pragma warning( disable: 4668 )
     #include <windows.h>
@@ -474,6 +587,45 @@ void testfw_test_end( char const* filename, char const* funcname, int line )
         TESTFW_PRINTF( "\n%s%s(%d): %sFAILED:%s\n", TESTFW_ANSI_LIGHT_GREY, testfw_internal_state.current_test.file, 
             testfw_internal_state.current_test.line, TESTFW_ANSI_LIGHT_RED, TESTFW_ANSI_RESET );
         TESTFW_PRINTF( "\n  %sEXCEPTION( %s%s%s )%s\n", TESTFW_ANSI_CYAN, TESTFW_ANSI_WHITE, exception_str, 
+            TESTFW_ANSI_LIGHT_GREY, TESTFW_ANSI_RESET );
+        }
+#elif ( defined( __linux__ ) || defined( __APPLE__ ) ) && !defined( TESTFW_NO_CRASH_HANDLING )
+    void testfw_signal( int signum )
+        {
+        if( testfw_internal_must_be_in_test() ) return;
+
+        if( !testfw_internal_state.current_test.counted_as_failed ) 
+            {
+            testfw_internal_state.current_test.counted_as_failed = 1;
+            ++testfw_internal_state.tests_failed;
+            }
+
+        char signal_str[ 64 ];
+        switch( signum ) 
+            {
+            case SIGSEGV:
+                strcpy( signal_str, "SIGSEGV" );
+                break;
+            case SIGBUS:
+                strcpy( signal_str, "SIGBUS" );
+                break;
+            case SIGFPE:
+                strcpy( signal_str, "SIGFPE" );
+                break;
+            case SIGILL:
+                strcpy( signal_str, "SIGILL" );
+                break;
+            case SIGTRAP:
+                strcpy( signal_str, "SIGTRAP" );
+                break;
+            default:
+                sprintf( signal_str, "%d", signum );
+            }
+
+        testfw_print_test_desc();
+        TESTFW_PRINTF( "\n%s%s(%d): %sFAILED:%s\n", TESTFW_ANSI_LIGHT_GREY, testfw_internal_state.current_test.file, 
+            testfw_internal_state.current_test.line, TESTFW_ANSI_LIGHT_RED, TESTFW_ANSI_RESET );
+        TESTFW_PRINTF( "\n  %sSIGNAL( %s%s%s )%s\n", TESTFW_ANSI_CYAN, TESTFW_ANSI_WHITE, signal_str, 
             TESTFW_ANSI_LIGHT_GREY, TESTFW_ANSI_RESET );
         }
 #endif
