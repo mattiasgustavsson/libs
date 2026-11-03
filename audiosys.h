@@ -3,7 +3,7 @@
 		  Licensing information can be found at the end of the file.
 ------------------------------------------------------------------------------
 
-audiosys.h - v0.2 - Sound and music playback (mixing only) for C/C++.
+audiosys.h - v0.3 - Sound and music playback (mixing only) for C/C++.
 
 Do this:
 	#define AUDIOSYS_IMPLEMENTATION
@@ -256,29 +256,29 @@ static void audiosys_internal_handles_update( audiosys_internal_handles_t* handl
 }
 
 
-static uint64_t audiosys_internal_to_u64( int handle, int counter ) {
-	uint64_t i = (uint64_t) ( handle + 1 );
-	uint64_t c = (uint64_t) counter;
+static AUDIOSYS_U64 audiosys_internal_to_u64( int handle, int counter ) {
+	AUDIOSYS_U64 i = (AUDIOSYS_U64) ( handle + 1 );
+	AUDIOSYS_U64 c = (AUDIOSYS_U64) counter;
 	return ( c << 32ull ) | ( i );
 }
 
 
-static int audiosys_internal_u64_to_counter( uint64_t u ) {
+static int audiosys_internal_u64_to_counter( AUDIOSYS_U64 u ) {
 	return (int) ( u >> 32ull ) ;
 }
 	
 
-static int audiosys_internal_u64_to_handle( uint64_t u ) {
+static int audiosys_internal_u64_to_handle( AUDIOSYS_U64 u ) {
 	return ( (int) ( u & 0xffffffffull ) ) - 1;
 }
 
 
-static uint64_t audiosys_internal_handles_to_u64( audiosys_internal_handles_t* handles, int handle ) {
+static AUDIOSYS_U64 audiosys_internal_handles_to_u64( audiosys_internal_handles_t* handles, int handle ) {
 	return audiosys_internal_to_u64( handle, handles->data[ handle ].counter );
 }
 
 
-static int audiosys_internal_handles_from_u64( audiosys_internal_handles_t* handles, uint64_t u ) {
+static int audiosys_internal_handles_from_u64( audiosys_internal_handles_t* handles, AUDIOSYS_U64 u ) {
 	int handle = audiosys_internal_u64_to_handle( u );
 	if( handle >= 0 && handle < handles->count && handles->data[ handle ].counter == audiosys_internal_u64_to_counter( u ) ) {
 		return handle;
@@ -365,21 +365,21 @@ audiosys_t* audiosys_create( int active_voice_count, void* memctx ) {
 
 	audiosys->memctx = memctx;
 
-	audiosys->use_soft_clip = true;
+	audiosys->use_soft_clip = 1;
 	audiosys->active_voice_count= active_voice_count;
 	audiosys->master_volume = 1.0f;
 	audiosys->gain = 1.0f;
 	audiosys->paused = 0;
 
 	audiosys->music.volume = 1.0f;
-	audiosys->music.loop = true;
+	audiosys->music.loop = 1;
 	audiosys->music_crossfade.volume = 1.0f;
-	audiosys->music_crossfade.loop = true;
+	audiosys->music_crossfade.loop = 1;
 
 	audiosys->ambience.volume = 1.0f;
-	audiosys->ambience.loop = true;
+	audiosys->ambience.loop = 1;
 	audiosys->ambience_crossfade.volume = 1.0f;
-	audiosys->ambience_crossfade.loop = true;
+	audiosys->ambience_crossfade.loop = 1;
 
 	audiosys->sounds_capacity = 64;
 	audiosys->sounds_count = 0;
@@ -429,8 +429,8 @@ static audiosys_internal_voice_t* audiosys_internal_get_sound( audiosys_t* audio
 static AUDIOSYS_U64 audiosys_internal_add_sound( audiosys_t* audiosys, audiosys_internal_voice_t** sound, float priority ) {
 	if( audiosys->sounds_count >= audiosys->sounds_capacity ) {
 		int new_capacity = audiosys->sounds_capacity * 2;
-		AUDIOSYS_U64* new_sounds_by_priority = (AUDIOSYS_U64*) AUDIOSYS_MALLOC( memctx, sizeof( AUDIOSYS_U64 ) * new_capacity );
-		audiosys_internal_voice_t* new_sounds = (audiosys_internal_voice_t*) AUDIOSYS_MALLOC( memctx, sizeof( audiosys_internal_voice_t ) * new_capacity );
+		AUDIOSYS_U64* new_sounds_by_priority = (AUDIOSYS_U64*) AUDIOSYS_MALLOC( audiosys->memctx, sizeof( AUDIOSYS_U64 ) * new_capacity );
+		audiosys_internal_voice_t* new_sounds = (audiosys_internal_voice_t*) AUDIOSYS_MALLOC( audiosys->memctx, sizeof( audiosys_internal_voice_t ) * new_capacity );
 		AUDIOSYS_MEMCPY( new_sounds_by_priority, audiosys->sounds_by_priority, sizeof( AUDIOSYS_U64 ) * audiosys->sounds_count );
 		AUDIOSYS_MEMCPY( new_sounds, audiosys->sounds, sizeof( audiosys_internal_voice_t ) * audiosys->sounds_count );
 		AUDIOSYS_FREE( audiosys->memctx, audiosys->sounds_by_priority );
@@ -485,6 +485,7 @@ static void audiosys_internal_remove_sound( audiosys_t* audiosys, AUDIOSYS_U64 h
 			for( int i = j; i < audiosys->sounds_count - 1; ++i ) {
 				audiosys->sounds_by_priority[ i ] = audiosys->sounds_by_priority[ i + 1 ];
 			}
+			audiosys->sounds_by_priority[ audiosys->sounds_count - 1 ] = 0;
 			break;
 		}
 	}
@@ -665,7 +666,7 @@ void audiosys_internal_mix_voice( audiosys_t* audiosys, audiosys_internal_voice_
 		    audiosys->mixing_buffer[ i * 2 + 1 ] += right;
 		}
 	} else {
-		AUDIOSYS_ASSERT( false, "Invalid mix parameters" );
+		AUDIOSYS_ASSERT( 0, "Invalid mix parameters" );
 	}
 }
 
@@ -705,7 +706,7 @@ void audiosys_render( audiosys_t* audiosys, AUDIOSYS_S16* output_sample_pairs, i
 	audiosys_internal_mix_voice( audiosys, &audiosys->ambience, audiosys->sample_buffer, sample_pairs_count );
 	audiosys_internal_mix_voice( audiosys, &audiosys->ambience_crossfade, audiosys->sample_buffer, sample_pairs_count );
 
-	int sounds_count = audiosys->active_voice_count;
+	int sounds_count = audiosys->sounds_count < audiosys->active_voice_count ? audiosys->sounds_count : audiosys->active_voice_count;
 	for( int i = 0; i < sounds_count; ++i ) {
 	   audiosys_internal_mix_voice( audiosys, audiosys_internal_get_sound( audiosys, audiosys->sounds_by_priority[ i ] ), audiosys->sample_buffer, sample_pairs_count );
 	}
@@ -764,11 +765,8 @@ void audiosys_stop_all( audiosys_t* audiosys ) {
 	audiosys_music_stop( audiosys, 0.0f );
 	audiosys_ambience_stop( audiosys, 0.0f );
 
-	for( int i = 0; i < audiosys->sounds_count; ++i ) {
-		audiosys_internal_voice_t* sound = &audiosys->sounds[ i ];
-		sound->state = AUDIOSYS_INTERNAL_VOICE_STATE_STOPPED;
-		audiosys_internal_remove_sound( audiosys, sound->handle );
-		audiosys_internal_release_source( &sound->source );
+	while( audiosys->sounds_count > 0 ) {
+		audiosys_internal_remove_sound( audiosys, audiosys->sounds[ audiosys->sounds_count - 1 ].handle );
 	}
 }
 
@@ -1097,9 +1095,7 @@ void audiosys_sound_stop( audiosys_t* audiosys, AUDIOSYS_U64 handle, float fade_
 		sound->state = AUDIOSYS_INTERNAL_VOICE_STATE_FADING_OUT;
 		sound->fade_progress = 1.0f;
 	} else {
-		sound->state = AUDIOSYS_INTERNAL_VOICE_STATE_STOPPED;
 		audiosys_internal_remove_sound( audiosys, handle );
-		audiosys_internal_release_source( &sound->source );
 	}
 }
 
@@ -1231,6 +1227,7 @@ audiosys_sound_valid_t audiosys_sound_valid(audiosys_t* audiosys, AUDIOSYS_U64 h
 
 /*
 revision history:
+    0.3     fixed sound mixing bug
     0.2     fixed handle corruption bug
     0.1     first publicly released version 
 */
